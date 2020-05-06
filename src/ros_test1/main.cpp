@@ -1,29 +1,39 @@
+#include <ros.h>
+#include <std_msgs/Empty.h>
+#include <std_msgs/Bool.h>
 #include "mbed.h"
-#include "mon.h"
 
-DigitalOut led1(LED1);
-
-Mon mon(USBTX, USBRX);
-Param param0;
-
-void led(std::vector<std::string> command)
+class mySTM32 : public MbedHardware
 {
-    if(command[1] == "set") {
-        if(command[2] == "0")led1=0;
-        else led1 = 1;
-    }
+public:
+  mySTM32() : MbedHardware(USBTX, USBRX, 57600){};
+};
+ros::NodeHandle_<mySTM32> nh;
+
+DigitalOut myled(LED1);
+DigitalIn mybutton(USER_BUTTON);
+
+void messageCb(const std_msgs::Empty& toggle_msg)
+{
+  myled = !myled;  // blink the led
 }
+ros::Subscriber<std_msgs::Empty> sub("toggle_led", &messageCb);
+
+std_msgs::Bool pushed_msg;
+ros::Publisher pub_button("pushed", &pushed_msg);
 
 int main()
 {
-    mon.register_func("led", callback(led));
-    mon.register_func("param", callback(&param0, &Param::monCallback));
+  nh.initNode();
+  nh.subscribe(sub);
+  nh.advertise(pub_button);
 
-    param0.register_int("PID_P", 10);
-    param0.register_int("PID_I", 20);
+  while (1)
+  {
+    pushed_msg.data = mybutton;
+    pub_button.publish(&pushed_msg);
 
-    while(1) {
-        thread_sleep_for(100);
-        mon.process();
-    }
+    nh.spinOnce();
+    thread_sleep_for(500);
+  }
 }
