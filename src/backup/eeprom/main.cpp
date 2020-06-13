@@ -6,13 +6,15 @@
 #include "mon.h"
 #include "param.h"
 
+#include "m24c64.h"
 
-DigitalOut myled(PC_13);
+DigitalOut myled(PB_3);
 Param param;
 
 Mon mon(USBTX, USBRX);
 // RawSerial serial(USBTX, USBRX, 115200);
-SPI cled(PB_5, PB_4, PB_3);
+
+I2CEEprom eeprom;
 
 std::string ledCommand(std::vector<std::string> command)
 {
@@ -41,14 +43,19 @@ int main()
   param.register_int("PID_P", 10);
   param.register_int("PID_I", 20);
 
-  cled.frequency(4000000);
+  eeprom.write(1, 0x11);
+  eeprom.write(2, 0x22);
+  eeprom.write(3, 0x33);
+
   while (1)
   {
+    for (int i = 0; i < 4; i++)
+    {
+      int x = eeprom.read(i);
+      printf("%04x:%02x\n", i, x);
+    }
     mon.process();
     myled = !myled;
-    thread_sleep_for(500);
-    cled.write(0x90);
-    cled.write(0x90);
-    cled.write(0x90);
+    thread_sleep_for(250);
   }
 }
