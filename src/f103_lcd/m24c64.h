@@ -14,7 +14,7 @@ public:
   void write_page(unsigned int page, std::vector<unsigned char> data);
 
   unsigned char read(unsigned int address);
-  std::vector<unsigned char> read_page(unsigned int page);
+  std::vector<unsigned char> read_page(unsigned int page, int size);
 };
 
 I2CEEprom::I2CEEprom() : I2C(PB_9, PB_8)
@@ -63,7 +63,7 @@ void I2CEEprom::write_page(unsigned int page, std::vector<unsigned char> data)
   stop();
 }
 
-std::vector<unsigned char> I2CEEprom::read_page(unsigned int page)
+std::vector<unsigned char> I2CEEprom::read_page(unsigned int page, int size)
 {
   start();
   unsigned char addr_l = (page * 32) & 0xff;
@@ -75,7 +75,7 @@ std::vector<unsigned char> I2CEEprom::read_page(unsigned int page)
   ((I2C*)this)->write(addr + 1);
 
   std::vector<unsigned char> result;
-  for(int i=0;i<8;i++){
+  for(int i=0;i<size;i++){
     result.push_back(((I2C*)this)->read(1));
   }
   stop();
