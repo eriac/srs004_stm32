@@ -8,7 +8,30 @@
 #include "param.h"
 
 DigitalOut myled(PC_13);
+DigitalOut led1(PB_12);
+DigitalOut led2(PB_13);
 Param param;
+
+SPI fled(PA_7, PA_6, PA_5);
+
+void set_led(unsigned char red, unsigned char green, unsigned char blue)
+{
+  char tx_data[24] = { 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f,
+                       0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f, 0x3f };
+  char rx_data[24];
+
+  for (int i = 0; i < 8; i++)
+    if (green & 1 << (7 - i))
+      tx_data[i] = 0x03;
+  for (int i = 0; i < 8; i++)
+    if (red & 1 << (7 - i))
+      tx_data[i + 8] = 0x03;
+  for (int i = 0; i < 8; i++)
+    if (blue & 1 << (7 - i))
+      tx_data[i + 16] = 0x03;
+
+  fled.write(tx_data, 24, rx_data, 24);
+}
 
 Mon mon(USBTX, USBRX);
 // RawSerial serial(USBTX, USBRX, 115200);
@@ -54,19 +77,36 @@ std::string ledCommand(std::vector<std::string> command)
   {
     if (command[2] == "0")
     {
-      myled = 0;
-      result = "set on";
+      led2 = 0;
+      result = "set off";
     }
     else
     {
-      myled = 1;
-      result = "set off";
+      led2 = 1;
+      result = "set on";
     }
   }
+
+  if (command[1] == "color")
+  {
+    if (command.size() == 5)
+    {
+      unsigned char r = std::atoi(command[2].c_str());
+      unsigned char g = std::atoi(command[3].c_str());
+      unsigned char b = std::atoi(command[4].c_str());
+      set_led(r, g, b);
+      result = "color: " + std::to_string(r) + ", " + std::to_string(g) + ", " + std::to_string(b);
+    }
+    else
+    {
+      result = "command.size must be 5";
+    }
+  }
+
   return result;
 }
 
-I2C i2c0(PB_9, PB_8);
+I2C i2c0(PB_7, PB_6);
 I2CEEprom eeprom(i2c0);
 
 std::string eepromCommand(std::vector<std::string> command)
@@ -171,9 +211,13 @@ int main()
   param.register_int("PID_I", 20);
   param.register_int("PID_D", 1);
 
+  fled.format(8, 3);
+  fled.frequency(8000000);
+
   while (1)
   {
     mon.process();
+    led1 = !led1;
     thread_sleep_for(100);
   }
 }
