@@ -12,6 +12,8 @@ DigitalOut led1(PB_12);
 DigitalOut led2(PB_13);
 Param param;
 
+#define EEPROM_MAX_PAGE 4
+
 SPI fled(PA_7, PA_6, PA_5);
 
 void set_led(unsigned char red, unsigned char green, unsigned char blue)
@@ -36,39 +38,6 @@ void set_led(unsigned char red, unsigned char green, unsigned char blue)
 Mon mon(USBTX, USBRX);
 // RawSerial serial(USBTX, USBRX, 115200);
 
-union param_value {
-  struct int_value_t
-  {
-    int data;
-    unsigned char rest[4];
-  } int_value;
-  struct float_value_t
-  {
-    float data;
-    unsigned char rest[4];
-  } float_value;
-  unsigned char char_value[8];
-};
-
-enum class param_type : unsigned char
-{
-  TYPE_NONE,
-  TYPE_INT,
-  TYPE_FLOAT,
-  TYPE_STRING
-};
-
-struct param_item
-{
-  param_type type;
-  char name[7];
-  union param_value value;
-};
-
-union param_union {
-  param_item param[2];
-  unsigned char byte[32];
-};
 
 std::string ledCommand(std::vector<std::string> command)
 {
@@ -118,79 +87,65 @@ std::string eepromCommand(std::vector<std::string> command)
     page = std::atoi(command[2].c_str());
     if (0 <= page && page < 256)
     {
-      std::vector<unsigned char> data;
-      for (int i = 0; i < 32; i++)
-        data.push_back(0xff);
-      eeprom.write_page(page, data);
-      thread_sleep_for(20);
+      eeprom.clear_page(page);
       result = "clear page: " + std::to_string(page);
-    }
-  }
-  else if (command[1] == "set")
-  {
-    int page = -1;
-    page = std::atoi(command[2].c_str());
-    if (0 <= page && page < 256)
-    {
-      std::vector<unsigned char> data;
-      for (int i = 0; i < 32; i++)
-        data.push_back(100 + i);
-      eeprom.write_page(page, data);
-      thread_sleep_for(20);
-      result = "set page: " + std::to_string(page);
-    }
-  }
-  else if (command[1] == "read")
-  {
-    int page = -1;
-    page = std::atoi(command[2].c_str());
-    if (0 <= page && page < 256)
-    {
-      result = "read page[" + std::to_string(page) + "] ";
-      std::vector<unsigned char> ret = eeprom.read_page(page, 32);
-      for (auto item : ret)
-        result += std::to_string(item) + " ";
     }
   }
   else if (command[1] == "store")
   {
-    param_union page0;
-    strncpy(page0.param[0].name, "abcd", 8);
-    page0.param[0].type = param_type::TYPE_INT;
-    page0.param[0].value.int_value.data = 30;
-    strncpy(page0.param[1].name, "xyz", 8);
-    page0.param[1].type = param_type::TYPE_FLOAT;
-    page0.param[1].value.float_value.data = 12.345;
-    result = "store: ";
-    std::vector<unsigned char> data;
-    for (int i = 0; i < 32; i++)
-    {
-      data.push_back(page0.byte[i]);
-      result += std::to_string(page0.byte[i]) + ", ";
+    // param_union page0;
+    // strncpy(page0.param[0].name, "abcd", 7);
+    // page0.param[0].type = param_type::TYPE_INT;
+    // page0.param[0].value.int_value.data = 30;
+    // strncpy(page0.param[1].name, "xyz", 7);
+    // page0.param[1].type = param_type::TYPE_FLOAT;
+    // page0.param[1].value.float_value.data = 12.345;
+    unsigned int index = 0;
+    param_union pages[EEPROM_MAX_PAGE];
+
+    // auto& target_side = pages[0].param[0];
+    // strncpy(target_side.name, "abcd", 7);
+    // target_side.type = param_type::TYPE_INT;
+    // target_side.value.int_value.data = 30;
+
+
+    for(auto item : param.int_param_){
+      int page = index / 2;
+      int side = index % 2;
+      auto& target_side = pages[page].param[side];
+      strncpy(target_side.name, item.first.c_str(), 7);
+      target_side.type = param_type::TYPE_INT;
+      target_side.value.int_value.data = item.second;        
+      index ++;
+      if(index / 2 == EEPROM_MAX_PAGE)break;
     }
-    eeprom.write_page(0, data);
-    thread_sleep_for(20);
+    for(int i = 0; i < EEPROM_MAX_PAGE; i++){
+      eeprom.write_page(i, pages[i]);
+      thread_sleep_for(20);
+    }
   }
   else if (command[1] == "load")
   {
     int page = -1;
-    std::vector<unsigned char> data = eeprom.read_page(0, 32);
-    param_union page0;
-    result = "load: ";
-    for (int i = 0; i < 32; i++)
+    page = std::atoi(command[2].c_str());
+    if (page < 0 || 256 <= page)
     {
-      page0.byte[i] = data[i];
-      result += std::to_string(data[i]) + ", ";
+      result = "range out";
+      return result;
     }
+
+    result = "load: " + to_string(page)+"\n";
+
+    param_union page0 = eeprom.read_page(page);
 
     for (int i = 0; i < 2; i++)
     {
       if (page0.param[i].type == param_type::TYPE_INT)
-        result += std::string(page0.param[i].name) + " INT: " + std::to_string(page0.param[i].value.int_value.data);
+        result += std::string(page0.param[i].name) + " INT: " + std::to_string(page0.param[i].value.int_value.data)+"\n";
       else if (page0.param[i].type == param_type::TYPE_FLOAT)
-        result += std::string(page0.param[i].name) + " FLOAT: " + std::to_string(page0.param[i].value.float_value.data);
+        result += std::string(page0.param[i].name) + " FLOAT: " + std::to_string(page0.param[i].value.float_value.data)+"\n";
       else
-        result += "OTHER:" + std::to_string((int)(page0.param[i].type));
+        result += "OTHER:" + std::to_string((int)(page0.param[i].type))+"\n";
     }
   }
   return result;
@@ -210,6 +165,8 @@ int main()
   param.register_int("PID_P", 10);
   param.register_int("PID_I", 20);
   param.register_int("PID_D", 1);
+  param.register_int("PID_2", 2);
+  param.register_int("PID_3", 3);
 
   fled.format(8, 3);
   fled.frequency(8000000);

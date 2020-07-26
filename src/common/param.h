@@ -32,6 +32,5 @@ public:
     return result;
   }
 
-private:
   std::map<std::string, int> int_param_;
 };
