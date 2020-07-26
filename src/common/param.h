@@ -14,6 +14,12 @@ public:
   {
     int_param_[name] = value;
   }
+  void update_int(std::string name, int value)
+  {
+    if(int_param_.count(name) != 0){
+      int_param_[name] = value;
+    }
+  }
   std::string monCallback(std::vector<std::string> command)
   {
     std::string result = "";
