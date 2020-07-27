@@ -6,12 +6,12 @@
 #include <vector>
 #include "mbed.h"
 
-class MonBase
+class Monitor
 {
 public:
-  MonBase(PinName tx_pin, PinName rx_pin) : serial_(tx_pin, rx_pin, 115200)
+  Monitor(PinName tx_pin, PinName rx_pin, int baudrate) : serial_(tx_pin, rx_pin, baudrate)
   {
-    serial_.attach(callback(this, &MonBase::rxCallback));
+    serial_.attach(callback(this, &Monitor::rxCallback));
     serial_.printf("\nstart\n");
     serial_.printf("> ");
     input_.reserve(32);
@@ -112,39 +112,5 @@ public:
   RawSerial serial_;
   std::string input_;
   bool recv_nl_;
-
-protected:
   std::map<std::string, Callback<std::string(std::vector<std::string>)> > command_list_;
-};
-
-class Mon : public MonBase
-{
-public:
-  Mon(PinName tx_pin, PinName rx_pin) : MonBase(tx_pin, rx_pin)
-  {
-    register_func("help", callback(this, &Mon::helpCommand));
-    register_func("date", callback(this, &Mon::dateCommand));
-  }
-
-private:
-  std::string helpCommand(std::vector<std::string> command)
-  {
-    std::string result = "";
-    for (std::map<std::string, Callback<std::string(std::vector<std::string>)> >::iterator iter = command_list_.begin();
-         iter != command_list_.end(); iter++)
-    {
-      result += iter->first + "\n";
-    }
-    return result;
-  }
-
-  std::string dateCommand(std::vector<std::string> command)
-  {
-    std::string result = "build at ";
-    result += __DATE__;
-    result += " ";
-    result += __TIME__;
-    result += "(UTC)";
-    return result;
-  }
 };

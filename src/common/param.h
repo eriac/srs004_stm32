@@ -10,32 +10,18 @@ public:
   Param()
   {
   }
-  void register_int(std::string name, int value)
+  bool registerParam(std::string name, int value)
   {
     int_param_[name] = value;
+    return true;
   }
-  void update_int(std::string name, int value)
+  bool updateParam(std::string name, int value)
   {
     if(int_param_.count(name) != 0){
       int_param_[name] = value;
+      return true;
     }
-  }
-  std::string monCallback(std::vector<std::string> command)
-  {
-    std::string result = "";
-    if (command[1] == "list")
-    {
-      for (std::map<std::string, int>::iterator iter = int_param_.begin(); iter != int_param_.end(); iter++)
-      {
-        result += iter->first + " " + std::to_string(iter->second) + "\n";
-      }
-    }
-    else if (command[1] == "set")
-    {
-      int value = atoi(command[3].c_str());
-      register_int(command[2], value);
-    }
-    return result;
+    return false;
   }
 
   std::map<std::string, int> int_param_;
