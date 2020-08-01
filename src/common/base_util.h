@@ -4,13 +4,14 @@
 #include "monitor.h"
 #include "param.h"
 #include "m24c64.h"
+#include "canlink.h"
 
 #define EEPROM_MAX_PAGE 4
 
 class BaseUtil
 {
 public:
-  BaseUtil():led1_(PB_12), led2_(PB_13), monitor_(USBTX, USBRX, 115200), param_(), i2c0_(PB_7, PB_6), eeprom_(i2c0_)
+  BaseUtil():led1_(PB_12), led2_(PB_13), monitor_(USBTX, USBRX, 115200), param_(), i2c0_(PB_7, PB_6), eeprom_(i2c0_), canlink_(PA_11, PA_12, 1000000)
   {
     monitor_.register_func("help", callback(this, &BaseUtil::monitorHelpCommand));
     monitor_.register_func("date", callback(this, &BaseUtil::monitorDateCommand));
@@ -20,6 +21,7 @@ public:
   void process(void)
   {
     monitor_.process();
+    canlink_.process();
     led1_ = !led1_;
   }
 
@@ -144,5 +146,5 @@ public:
   Param param_;
   I2C i2c0_;
   I2CEEprom eeprom_;
-
+  Canlink canlink_;
 };
