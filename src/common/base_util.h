@@ -49,6 +49,11 @@ public:
     return true;
   }
 
+  bool setCanlinkID(unsigned char id){
+    canlink_.setID(id);
+    return true;
+  }
+
   std::string monitorHelpCommand(std::vector<std::string> command)
   {
     std::string result = "";
