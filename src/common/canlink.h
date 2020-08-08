@@ -40,7 +40,7 @@ public:
     can_msg.id = device_id_ << 22 | target_id << 15 | command_id << 8;
     can_msg.format = CANExtended;
     can_msg.len = data.size();
-    for(int i = 0; i < data.size(); i++){
+    for(size_t i = 0; i < data.size(); i++){
         can_msg.data[i] = data[i]; 
     }
     can_.write(can_msg);

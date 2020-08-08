@@ -47,8 +47,8 @@ int main()
   base_util.loadParam();
 
   base_util.canlink_.setID(1);
-  base_util.monitor_.register_func("can", monitorCanCallback);
-  base_util.canlink_.register_func(2, canlinkCommand);
+  base_util.registerMonitor("can", monitorCanCallback);
+  base_util.registerCanlink(2, canlinkCommand);
 
   thread_sleep_for(1500);
   char data[8]={1,2,3,4,5,6,7,8};
@@ -56,7 +56,7 @@ int main()
   while (1)
   {
     base_util.process();
-    base_util.canlink_.send(2, 10, std::vector<unsigned char>{10, 20, 30, 40});
+    base_util.sendCanlink(2, 10, std::vector<unsigned char>{10, 20, 30, 40});
     base_util.led1_ != base_util.led1_;
     thread_sleep_for(500);
   }

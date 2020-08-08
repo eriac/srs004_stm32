@@ -5,6 +5,7 @@
 #include "param.h"
 #include "m24c64.h"
 #include "canlink.h"
+#include "hz_timer.h"
 
 #define EEPROM_MAX_PAGE 4
 
@@ -49,9 +50,20 @@ public:
     return true;
   }
 
-  bool setCanlinkID(unsigned char id){
+  void setCanlinkID(unsigned char id){
     canlink_.setID(id);
-    return true;
+  }
+
+  void registerCanlink(unsigned char command, Callback<void(CanlinkMsg)> func){
+    canlink_.register_func(command, func);
+  }
+
+  void sendCanlink(unsigned char target_id, unsigned char command_id, std::vector<unsigned char> data){
+    canlink_.send(target_id, command_id, data);
+  }
+
+  void registerMonitor(std::string name, Callback<std::string(std::vector<std::string>)> func){
+    monitor_.register_func(name, func);
   }
 
   std::string monitorHelpCommand(std::vector<std::string> command)
@@ -152,4 +164,5 @@ public:
   I2C i2c0_;
   I2CEEprom eeprom_;
   Canlink canlink_;
+  HzTimer hz_timer_;
 };

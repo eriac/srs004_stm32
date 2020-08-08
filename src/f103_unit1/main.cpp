@@ -6,7 +6,6 @@
 #include "base_util.h"
 
 DigitalOut myled(PC_13);
-CAN can1(PA_11, PA_12);
 
 BaseUtil base_util;
 
@@ -26,14 +25,14 @@ int main()
   base_util.loadParam();
 
   base_util.setCanlinkID(2);
-  base_util.canlink_.register_func(10, canlinkCommand);
+  base_util.registerCanlink(10, canlinkCommand);
 
-  can1.frequency(1000000);
-
-  char data[8]={1,2,3,4,5,6,7};
-  CANMessage can_data(10, data, 8);
+  auto flag = base_util.hz_timer_.registerTimer(1.0);
   while (1)
   {
+    if(flag->check()){
+      printf("flag: true\n");
+    }
     base_util.process();
     thread_sleep_for(100);
   }
