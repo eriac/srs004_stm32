@@ -23,7 +23,6 @@ public:
   {
     monitor_.process();
     canlink_.process();
-    led1_ = !led1_;
   }
 
   bool registerParam(std::string name, auto value){
@@ -64,6 +63,15 @@ public:
 
   void registerMonitor(std::string name, Callback<std::string(std::vector<std::string>)> func){
     monitor_.register_func(name, func);
+  }
+
+  void toggleLed(int index){
+    if(index == 1)led1_ = !led1_;
+    else if(index == 2)led2_ = !led2_;
+  }
+
+  std::shared_ptr<HzHandler> registerTimer(const float hz){
+    return hz_timer_.registerTimer(hz);
   }
 
   std::string monitorHelpCommand(std::vector<std::string> command)
@@ -157,6 +165,7 @@ public:
     return result;
   }
 
+private:
   DigitalOut led1_;
   DigitalOut led2_;
   Monitor monitor_;

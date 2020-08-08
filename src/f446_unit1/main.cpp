@@ -25,8 +25,7 @@ std::string monitorCanCallback(std::vector<std::string> command)
     unsigned char target_id = atoi(command[2].c_str()) & 0x7f;
     unsigned char command_id = atoi(command[3].c_str()) & 0x7f;
 
-    base_util.canlink_.send(target_id, command_id, std::vector<unsigned char>{10, 20, 30, 40});
-
+    base_util.sendCanlink(target_id, command_id, std::vector<unsigned char>{10, 20, 30, 40});
   }
   return result;
 }
@@ -46,18 +45,18 @@ int main()
   base_util.registerParam("PID_D", 0);
   base_util.loadParam();
 
-  base_util.canlink_.setID(1);
+  base_util.setCanlinkID(1);
   base_util.registerMonitor("can", monitorCanCallback);
   base_util.registerCanlink(2, canlinkCommand);
 
-  thread_sleep_for(1500);
-  char data[8]={1,2,3,4,5,6,7,8};
-  CANMessage can_data(10, data, 8, CANData, CANExtended);
+  auto flag_2hz = base_util.registerTimer(2.0);
   while (1)
   {
+    if(flag_2hz->check()){
+      base_util.sendCanlink(2, 10, std::vector<unsigned char>{10, 20, 30, 40});
+      base_util.toggleLed(1);
+    }
     base_util.process();
-    base_util.sendCanlink(2, 10, std::vector<unsigned char>{10, 20, 30, 40});
-    base_util.led1_ != base_util.led1_;
-    thread_sleep_for(500);
+    thread_sleep_for(10);
   }
 }

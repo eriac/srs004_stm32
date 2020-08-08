@@ -15,6 +15,7 @@ void canlinkCommand(CanlinkMsg canlink_msg){
     printf("%u ", canlink_msg.data[i]);
   }
   printf("\n");
+  base_util.toggleLed(2);
 }
 
 int main()
@@ -27,13 +28,14 @@ int main()
   base_util.setCanlinkID(2);
   base_util.registerCanlink(10, canlinkCommand);
 
-  auto flag = base_util.hz_timer_.registerTimer(1.0);
+  auto flag_2hz = base_util.registerTimer(2.0);
   while (1)
   {
-    if(flag->check()){
-      printf("flag: true\n");
+    if(flag_2hz->check()){
+      printf("flag 2hz\n");
+      base_util.toggleLed(1);
     }
     base_util.process();
-    thread_sleep_for(100);
+    thread_sleep_for(10);
   }
 }
