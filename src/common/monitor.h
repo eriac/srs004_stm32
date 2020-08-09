@@ -24,7 +24,17 @@ public:
 
   void process(void)
   {
-    if (recv_nl_)
+    if (recv_esc_){
+      recv_esc_ = false;
+      std::vector<std::string> command;
+      command.resize(2);
+      command[1] = "escape";
+      for(auto com : command_list_){
+        command[0] = com.first;
+        com.second(command);  
+      }
+    }
+    else if (recv_nl_)
     {
       recv_nl_ = false;
       std::vector<std::string> command = split(input_, ' ');
@@ -89,6 +99,10 @@ private:
       {
         recv_nl_ = true;
       }
+      else if (recv == '\e')
+      {
+        recv_esc_ = true;
+      }
       else if (recv == '\b')
       {
         if (!input_.empty())
@@ -112,5 +126,6 @@ public:
   RawSerial serial_;
   std::string input_;
   bool recv_nl_;
+  bool recv_esc_;
   std::map<std::string, Callback<std::string(std::vector<std::string>)> > command_list_;
 };
