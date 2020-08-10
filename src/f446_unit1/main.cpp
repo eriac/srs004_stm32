@@ -12,11 +12,17 @@ BaseUtil base_util;
 struct ControlStatus{
   float target_speed;
   float current_speed;
+  float iterm;
   float output;
   void print(){
-    printf("o: %+5.3f, t: %+7.1f, c: %+7.1f\n", output, target_speed, current_speed);
+    printf("o: %+5.3f, t: %+7.1f, c: %+7.1f i: %7.1f\n", output, target_speed, current_speed, iterm);
   }
+};
 
+struct ControlParameter{
+  float f;
+  float p;
+  float i;
 };
 
 class PwmMotor{
@@ -55,8 +61,9 @@ public:
   }
   void control(float dt){
     float diff = (counter_ - last_counter_) / dt - target_;
-    float gain_p = 0.001;
-    float output = std::min(std::max(- gain_p * diff, -1.0f), 1.0f);
+    result_.iterm = result_.iterm + diff * dt;
+    float output_raw = param_.f * target_ - param_.p * diff - param_.i * result_.iterm;
+    float output = std::min(std::max(output_raw, -1.0f), 1.0f);
     if(output>0)setPwm(output, 0);
     else setPwm(0, -output);
 
@@ -64,13 +71,23 @@ public:
     result_.current_speed = (counter_ - last_counter_)  / dt;
     result_.output = output;
 
+    if(result_.target_speed == 0 && result_.current_speed == 0){
+      result_.iterm /= 2.0;
+    }
+
     last_counter_ = counter_;
   }
   void print(){
     if(notify_)result_.print();
   }
+  void setParam(float f, float p, float i){
+    param_.f = f;
+    param_.p = p;
+    param_.i = i;
+  }
 
   ControlStatus result_;
+  ControlParameter param_;
   PwmOut mot_a_;
   PwmOut mot_b_;
   InterruptIn enc_a_;
@@ -81,7 +98,9 @@ public:
   bool notify_;
 };
 
+PwmMotor mot0(PA_6, PA_7, PA_4, PA_5);
 PwmMotor mot1(PB_0, PB_1, PC_4, PC_5);
+// PwmMotor mot1(PB_0, PB_1, PC_4, PC_5);
 
 
 std::string imuCommand(std::vector<std::string> command)
@@ -139,11 +158,10 @@ std::string motorCallback(std::vector<std::string> command)
   {
     mot1.notify_ = true;
   }
-  if (command[1] == "escape")
+  else if (command[1] == "escape")
   {
     mot1.notify_ = false;
   }
-
   else if(command.size() == 3){
     unsigned char va = atoi(command[1].c_str()) & 0x7f;
     unsigned char vb = atoi(command[2].c_str()) & 0x7f;
@@ -154,6 +172,7 @@ std::string motorCallback(std::vector<std::string> command)
   }
   else if(command.size() == 2){
     int va = atoi(command[1].c_str());
+    mot0.setTarget(va);
     mot1.setTarget(va);
   }
   else{
@@ -172,9 +191,9 @@ void canlinkCommand(CanlinkMsg canlink_msg){
 
 int main()
 {
-  base_util.registerParam("PID_P", 0);
-  base_util.registerParam("PID_I", 0);
-  base_util.registerParam("PID_D", 0);
+  base_util.registerParam("GAIN_F", 0.00015f);
+  base_util.registerParam("GAIN_P", 0.0002f);
+  base_util.registerParam("GAIN_I", 0.0005f);
   base_util.loadParam();
 
   base_util.setCanlinkID(1);
@@ -186,7 +205,6 @@ int main()
 
   auto flag_2hz = base_util.registerTimer(2.0);
   auto flag_50hz = base_util.registerTimer(50.0);
-  int last_counter = 0;
   while (1)
   {
     if(flag_2hz->check()){
@@ -194,10 +212,19 @@ int main()
       base_util.toggleLed(1);
 
       mot1.print();
+      float gain_f = 0;
+      base_util.getParam("GAIN_F", gain_f);
+      float gain_p = 0;
+      base_util.getParam("GAIN_P", gain_p);
+      float gain_i = 0;
+      base_util.getParam("GAIN_I", gain_i);
+
+      mot0.setParam(gain_f, gain_p, gain_i);
+      mot1.setParam(gain_f, gain_p, gain_i);
     }
     if(flag_50hz->check()){
+      mot0.control(0.02);
       mot1.control(0.02);
-      last_counter = mot1.counter_;
     }
     base_util.process();
     thread_sleep_for(10);

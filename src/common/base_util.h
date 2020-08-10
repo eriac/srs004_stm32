@@ -28,9 +28,11 @@ public:
   bool registerParam(std::string name, auto value){
     return param_.registerParam(name, value);
   }
-
   bool updateParam(std::string name, auto value){
     return param_.updateParam(name, value);
+  }
+  bool getParam(std::string name, auto& value){
+    return param_.getParam(name, value);
   }
 
   bool loadParam(){
@@ -44,6 +46,9 @@ public:
       auto& target_side = pages[page].param[side];
       if (target_side.type == param_type::TYPE_INT){
         param_.updateParam(target_side.name, target_side.value.int_value.data);
+      }
+      else if (target_side.type == param_type::TYPE_FLOAT){
+        param_.updateParam(target_side.name, target_side.value.float_value.data);
       }
     }
     return true;
@@ -100,15 +105,45 @@ public:
     std::string result = "";
     if (command[1] == "list")
     {
+      result += "[INT]\n";
       for (std::map<std::string, int>::iterator iter = param_.int_param_.begin(); iter != param_.int_param_.end(); iter++)
+      {
+        result += iter->first + " " + std::to_string(iter->second) + "\n";
+      }
+      result += "[FLOAT]\n";
+      for (std::map<std::string, float>::iterator iter = param_.float_param_.begin(); iter != param_.float_param_.end(); iter++)
       {
         result += iter->first + " " + std::to_string(iter->second) + "\n";
       }
     }
     else if (command[1] == "set")
     {
-      int value = atoi(command[3].c_str());
-      param_.updateParam(command[2], value);
+      std::string s = command[3];
+      bool digit = false;
+      bool sign = false;
+      bool point = false;
+      bool other = false;
+      for(auto it = s.begin(); it != s.end(); it++){
+        if(std::isdigit(*it))digit = true;
+        else if(*it == '+')sign = true;
+        else if(*it == '-')sign = true;
+        else if(*it == '.')point = true;
+        else  other = true;
+      }
+
+      if(digit && !point && !other){
+        int value = std::stoi(command[3]);
+        param_.updateParam(command[2], value);
+        result = "int param " + std::to_string(value) + " -> " + command[2];
+      }
+      else if(digit && point && !other){
+        float value = std::stof(command[3]);
+        param_.updateParam(command[2], value);
+        result = "float param " + std::to_string(value) + " -> " + command[2];
+      }
+      else{
+        result = "error: not number";
+      }
     }
     else if (command[1] == "clear")
     {
@@ -136,6 +171,16 @@ public:
         index ++;
         if(index / 2 == EEPROM_MAX_PAGE)break;
       }
+      for(auto item : param_.float_param_){
+        int page = index / 2;
+        int side = index % 2;
+        auto& target_side = pages[page].param[side];
+        strncpy(target_side.name, item.first.c_str(), 7);
+        target_side.type = param_type::TYPE_FLOAT;
+        target_side.value.float_value.data = item.second;        
+        index ++;
+        if(index / 2 == EEPROM_MAX_PAGE)break;
+      }
       for(int i = 0; i < EEPROM_MAX_PAGE; i++){
         eeprom_.write_page(i, pages[i]);
         thread_sleep_for(20);
@@ -156,10 +201,13 @@ public:
           param_.updateParam(target_side.name, target_side.value.int_value.data);
           result += std::string(target_side.name) + " INT: " + std::to_string(target_side.value.int_value.data)+"\n";
         }
-        else if (target_side.type == param_type::TYPE_FLOAT)
+        else if (target_side.type == param_type::TYPE_FLOAT){
+          param_.updateParam(target_side.name, target_side.value.float_value.data);
           result += std::string(target_side.name) + " FLOAT: " + std::to_string(target_side.value.float_value.data)+"\n";
-        else
+        }
+        else{
           result += "OTHER:" + std::to_string((int)(target_side.type))+"\n";
+        }
       }
     }
     return result;
