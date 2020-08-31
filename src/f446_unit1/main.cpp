@@ -35,22 +35,26 @@ public:
     enc_a_.mode(PullUp);
     enc_b_.mode(PullUp);
 
-    enc_a_.rise([&](){
-      if(enc_b_.read())counter_++;
-      else counter_--;
+    enc_a_.rise([this](){
+      if(this->enc_b_.read())this->counter_++;
+      else this->counter_--;
     });
-    enc_a_.fall([&](){
-      if(enc_b_.read())counter_--;
-      else counter_++;
-    });
-    enc_b_.rise([&](){
-      if(enc_a_.read())counter_--;
-      else counter_++;
-    });
-    enc_b_.fall([&](){
-      if(enc_a_.read())counter_++;
-      else counter_--;
-    });
+    // enc_a_.rise([&](){
+    //   if(enc_b_.read())counter_++;
+    //   else counter_--;
+    // });
+    // enc_a_.fall([&](){
+    //   if(enc_b_.read())counter_--;
+    //   else counter_++;
+    // });
+    // enc_b_.rise([&](){
+    //   if(enc_a_.read())counter_--;
+    //   else counter_++;
+    // });
+    // enc_b_.fall([&](){
+    //   if(enc_a_.read())counter_++;
+    //   else counter_--;
+    // });
   }
   void setPwm(float ach, float bch){
     mot_a_ = ach;
@@ -99,9 +103,11 @@ public:
 };
 
 PwmMotor mot0(PA_6, PA_7, PA_4, PA_5);
-PwmMotor mot1(PB_0, PB_1, PC_4, PC_5);
 // PwmMotor mot1(PB_0, PB_1, PC_4, PC_5);
+// PwmMotor mot2(PB_8, PB_9, PB_4, PB_5);
 
+InterruptIn test_a(PC_3);
+// InterruptIn test_b(PC_5);
 
 std::string imuCommand(std::vector<std::string> command)
 {
@@ -156,16 +162,26 @@ std::string motorCallback(std::vector<std::string> command)
   std::string result = "";
   if (command[1] == "notify")
   {
-    mot1.notify_ = true;
+    if(command.size() == 3){
+      printf("notify\n");
+      int target = atoi(command[2].c_str());
+      if(target == 0) mot0.notify_ = true;
+      // else if(target == 1) mot1.notify_ = true;
+      // else if(target == 2) mot2.notify_ = true;
+      else return result;
+      result += "target" + std::to_string(target);
+    }
   }
   else if (command[1] == "escape")
   {
-    mot1.notify_ = false;
+    mot0.notify_ = false;
+    // mot1.notify_ = false;
+    // mot2.notify_ = false;
   }
   else if(command.size() == 3){
     unsigned char va = atoi(command[1].c_str()) & 0x7f;
     unsigned char vb = atoi(command[2].c_str()) & 0x7f;
-    mot1.setPwm((float)va / 256, (float)vb / 256);
+    // mot1.setPwm((float)va / 256, (float)vb / 256);
 
     result += "a: " + std::to_string((float)va / 256) + ", ";
     result += "b: " + std::to_string((float)vb / 256);
@@ -173,7 +189,8 @@ std::string motorCallback(std::vector<std::string> command)
   else if(command.size() == 2){
     int va = atoi(command[1].c_str());
     mot0.setTarget(va);
-    mot1.setTarget(va);
+    // mot1.setTarget(va);
+    // mot2.setTarget(va);
   }
   else{
     result += "too few args";
@@ -211,7 +228,9 @@ int main()
       base_util.sendCanlink(2, 10, std::vector<unsigned char>{10, 20, 30, 40});
       base_util.toggleLed(1);
 
-      mot1.print();
+      mot0.print();
+      // mot1.print();
+      // mot2.print();
       float gain_f = 0;
       base_util.getParam("GAIN_F", gain_f);
       float gain_p = 0;
@@ -220,11 +239,14 @@ int main()
       base_util.getParam("GAIN_I", gain_i);
 
       mot0.setParam(gain_f, gain_p, gain_i);
-      mot1.setParam(gain_f, gain_p, gain_i);
+      // mot1.setParam(gain_f, gain_p, gain_i);
+      // mot2.setParam(gain_f, gain_p, gain_i);
+
     }
     if(flag_50hz->check()){
       mot0.control(0.02);
-      mot1.control(0.02);
+      // mot1.control(0.02);
+      // mot2.control(0.02);
     }
     base_util.process();
     thread_sleep_for(10);
