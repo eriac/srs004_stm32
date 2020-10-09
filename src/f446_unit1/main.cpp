@@ -102,12 +102,9 @@ public:
   bool notify_;
 };
 
-PwmMotor mot0(PA_6, PA_7, PA_4, PA_5);
-// PwmMotor mot1(PB_0, PB_1, PC_4, PC_5);
-// PwmMotor mot2(PB_8, PB_9, PB_4, PB_5);
-
-InterruptIn test_a(PC_3);
-// InterruptIn test_b(PC_5);
+PwmMotor mot0(PA_6, PA_7, PA_0, PA_1);
+PwmMotor mot1(PB_0, PB_1, PC_4, PC_5);
+PwmMotor mot2(PB_8, PB_9, PD_2, PB_3);
 
 std::string imuCommand(std::vector<std::string> command)
 {
@@ -189,8 +186,8 @@ std::string motorCallback(std::vector<std::string> command)
   else if(command.size() == 2){
     int va = atoi(command[1].c_str());
     mot0.setTarget(va);
-    // mot1.setTarget(va);
-    // mot2.setTarget(va);
+    mot1.setTarget(va);
+    mot2.setTarget(va);
   }
   else{
     result += "too few args";
@@ -229,8 +226,8 @@ int main()
       base_util.toggleLed(1);
 
       mot0.print();
-      // mot1.print();
-      // mot2.print();
+      mot1.print();
+      mot2.print();
       float gain_f = 0;
       base_util.getParam("GAIN_F", gain_f);
       float gain_p = 0;
@@ -239,14 +236,14 @@ int main()
       base_util.getParam("GAIN_I", gain_i);
 
       mot0.setParam(gain_f, gain_p, gain_i);
-      // mot1.setParam(gain_f, gain_p, gain_i);
-      // mot2.setParam(gain_f, gain_p, gain_i);
+      mot1.setParam(gain_f, gain_p, gain_i);
+      mot2.setParam(gain_f, gain_p, gain_i);
 
     }
     if(flag_50hz->check()){
       mot0.control(0.02);
-      // mot1.control(0.02);
-      // mot2.control(0.02);
+      mot1.control(0.02);
+      mot2.control(0.02);
     }
     base_util.process();
     thread_sleep_for(10);
