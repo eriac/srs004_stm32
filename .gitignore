@@ -1,3 +1,7 @@
 /BUILD/
 /mbed-os/
 /ros_lib_kinetic/
+/ADXL345_I2C/
+/Adafruit_GFX/
+/MPU6050/
+
