@@ -1,14 +1,12 @@
 #!/bin/bash
 
+# install mbed-cli & related
 sudo apt install -y mercurial
 sudo apt install -y python-pip
 pip install mbed-cli
-sudo apt install -y gcc-arm-none-e
+sudo apt install -y gcc-arm-none-embi
 
-# sudo reboot
-
-
-
+# install stlink-driver
 sudo apt-get install -y dh-autoreconf
 cd /tmp && git clone https://github.com/texane/stlink
 cd /tmp/stlink
