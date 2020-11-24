@@ -39,22 +39,18 @@ public:
       if(this->enc_b_.read())this->counter_++;
       else this->counter_--;
     });
-    // enc_a_.rise([&](){
-    //   if(enc_b_.read())counter_++;
-    //   else counter_--;
-    // });
-    // enc_a_.fall([&](){
-    //   if(enc_b_.read())counter_--;
-    //   else counter_++;
-    // });
-    // enc_b_.rise([&](){
-    //   if(enc_a_.read())counter_--;
-    //   else counter_++;
-    // });
-    // enc_b_.fall([&](){
-    //   if(enc_a_.read())counter_++;
-    //   else counter_--;
-    // });
+    enc_a_.fall([&](){
+      if(enc_b_.read())counter_--;
+      else counter_++;
+    });
+    enc_b_.rise([&](){
+      if(enc_a_.read())counter_--;
+      else counter_++;
+    });
+    enc_b_.fall([&](){
+      if(enc_a_.read())counter_++;
+      else counter_--;
+    });
   }
   void setPwm(float ach, float bch){
     mot_a_ = ach;
@@ -163,8 +159,8 @@ std::string motorCallback(std::vector<std::string> command)
       printf("notify\n");
       int target = atoi(command[2].c_str());
       if(target == 0) mot0.notify_ = true;
-      // else if(target == 1) mot1.notify_ = true;
-      // else if(target == 2) mot2.notify_ = true;
+      else if(target == 1) mot1.notify_ = true;
+      else if(target == 2) mot2.notify_ = true;
       else return result;
       result += "target" + std::to_string(target);
     }
@@ -172,13 +168,12 @@ std::string motorCallback(std::vector<std::string> command)
   else if (command[1] == "escape")
   {
     mot0.notify_ = false;
-    // mot1.notify_ = false;
-    // mot2.notify_ = false;
+    mot1.notify_ = false;
+    mot2.notify_ = false;
   }
   else if(command.size() == 3){
     unsigned char va = atoi(command[1].c_str()) & 0x7f;
     unsigned char vb = atoi(command[2].c_str()) & 0x7f;
-    // mot1.setPwm((float)va / 256, (float)vb / 256);
 
     result += "a: " + std::to_string((float)va / 256) + ", ";
     result += "b: " + std::to_string((float)vb / 256);
@@ -207,7 +202,7 @@ int main()
 {
   base_util.registerParam("GAIN_F", 0.00015f);
   base_util.registerParam("GAIN_P", 0.0002f);
-  base_util.registerParam("GAIN_I", 0.0005f);
+  base_util.registerParam("GAIN_I", 0.0010f);
   base_util.loadParam();
 
   base_util.setCanlinkID(1);
