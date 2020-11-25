@@ -75,6 +75,16 @@ public:
     else if(index == 2)led2_ = !led2_;
   }
 
+  void turnOnLed(int index){
+    if(index == 1)led1_ = 1;
+    else if(index == 2)led2_ = 1;
+  }
+
+  void turnOffLed(int index){
+    if(index == 1)led1_ = 0;
+    else if(index == 2)led2_ = 0;
+  }
+
   std::shared_ptr<HzHandler> registerTimer(const float hz){
     return hz_timer_.registerTimer(hz);
   }

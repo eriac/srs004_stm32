@@ -4,6 +4,7 @@
 // #include "MPU6050.h"
 #include "mbed.h"
 #include "base_util.h"
+#include "canlink_converter.h"
 
 DigitalOut myled(PC_13);
 ADXL345_I2C accelerometer(PB_11, PB_10);
@@ -130,6 +131,8 @@ int main()
 
   auto flag_2hz = base_util.registerTimer(2.0);
   auto flag_10hz = base_util.registerTimer(10.0);
+  int hit_counter = 0;
+
   while (1)
   {
     if(flag_2hz->check()){
@@ -150,6 +153,11 @@ int main()
       if(source & 0x40){
         printf("hit\n");
         set_led(10, 0, 0);
+        
+        hit_counter++;
+        CanlinkConvertor::TargetStatus target_status;
+        target_status.hit_count = hit_counter;
+        base_util.sendCanlink(1, target_status.getID(), target_status.encode());
       }
       else{
         set_led(0, 0, 10);

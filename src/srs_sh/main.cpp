@@ -46,6 +46,8 @@ int main()
   {
     if(flag_2hz->check()){
       // printf("2hz\n");
+      base_util.sendCanlink(2, 10, std::vector<unsigned char>{sbus2.getCh(0)/10, sbus2.getCh(1)/10, sbus2.getCh(2)/10, sbus2.getCh(3)/10});
+      // base_util.sendCanlink(2, 10, std::vector<unsigned char>{10, 20, 30, 40});
       base_util.toggleLed(1);
     }
     if(flag_50hz->check()){
@@ -53,6 +55,14 @@ int main()
         printf("sbus2\n");
         printf(" 0ch: %04u,  1ch: %04u,  2ch: %04u,  3ch: %04u\n", sbus2.getCh(0), sbus2.getCh(1), sbus2.getCh(2), sbus2.getCh(3));
         printf(" 4ch: %04u,  5ch: %04u,  6ch: %04u,  7ch: %04u\n", sbus2.getCh(4), sbus2.getCh(5), sbus2.getCh(6), sbus2.getCh(7));
+
+        unsigned int sw_d = sbus2.getCh(7);
+        if(sw_d < 1024){
+          base_util.turnOnLed(2);
+        }
+        else{
+          base_util.turnOffLed(2);
+        }
       }
       if(sbus2.checkLost()){
         printf("sbus2 lost\n");
