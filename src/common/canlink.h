@@ -20,9 +20,17 @@ class Canlink
 public:
   Canlink(PinName rd_pin, PinName td_pin, int baudrate) : can_(rd_pin, td_pin, baudrate), device_id_(0)
   {
-     can_.frequency(1000000);
+    can_.frequency(baudrate);
     filter_handle_ = can_.filter(device_id_ << 15, 0x7f << 15, CANExtended);
     printf("filter: %u\n", filter_handle_);
+
+    // can_.mode(CAN::Normal);
+    // can_.attach(this, &Canlink::ew_callback, CAN::EwIrq);
+    // can_.attach(this, &Canlink::do_callback, CAN::DoIrq);
+    // can_.attach(this, &Canlink::wu_callback, CAN::WuIrq);
+    // can_.attach(this, &Canlink::ep_callback, CAN::EpIrq);
+    // can_.attach(this, &Canlink::al_callback, CAN::AlIrq);
+    // can_.attach(this, &Canlink::be_callback, CAN::BeIrq);
   }
 
   void setID(unsigned char id){
@@ -48,6 +56,17 @@ public:
 
   void process(void)
   {
+    // unsigned char re = can_.rderror();
+    // unsigned char te = can_.tderror();
+    // if(re != 0 || te !=0){
+    //   printf("re: %u, tr: %u\n", re, te);
+    //   can_.reset();
+    //   // can_.monitor(true);
+    // }
+    // static int counter;
+    // counter++;
+    // printf("%02u %u %u %u %u %u %u %u %u\n", counter, rx_irq_counter_, tx_irq_counter_, ew_irq_counter_, do_irq_counter_, wu_irq_counter_, ep_irq_counter_, al_irq_counter_, be_irq_counter_);
+
     CANMessage can_msg;
     while(can_.read(can_msg)) {
       if(can_msg.format == CANExtended){
@@ -75,4 +94,31 @@ public:
   unsigned char device_id_;
   std::map<unsigned int, Callback<void(CanlinkMsg)> > command_list_;
   int filter_handle_;
+
+// RxIrq for message received,
+// TxIrq for transmitted or aborted,
+// EwIrq for error warning,
+// DoIrq for data overrun,
+// WuIrq for wake-up,
+// EpIrq for error passive,
+// AlIrq for arbitration lost,
+// BeIrq for bus error
+
+  void rx_callback(void){rx_irq_counter_++;}
+  void tx_callback(void){tx_irq_counter_++;}
+  void ew_callback(void){ew_irq_counter_++;}
+  void do_callback(void){do_irq_counter_++;}
+  void wu_callback(void){wu_irq_counter_++;}
+  void ep_callback(void){ep_irq_counter_++;}
+  void al_callback(void){al_irq_counter_++;}
+  void be_callback(void){be_irq_counter_++;}
+
+  int rx_irq_counter_;
+  int tx_irq_counter_;
+  int ew_irq_counter_;
+  int do_irq_counter_;
+  int wu_irq_counter_;
+  int ep_irq_counter_;
+  int al_irq_counter_;
+  int be_irq_counter_;
 };

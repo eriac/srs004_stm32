@@ -3,6 +3,7 @@
 #include "mbed.h"
 #include "base_util.h"
 #include "sbus2.h"
+#include "canlink_converter.h"
 
 BaseUtil base_util;
 
