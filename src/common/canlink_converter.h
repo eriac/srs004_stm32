@@ -5,7 +5,47 @@
 
 namespace CanlinkConvertor {
 
+// #10 LedColor
+#define CANLINK_CMD_ID_LED_COLOR 10
+struct LedColor {
+    static constexpr unsigned char SET_BASE_COLOR = 1;
+
+    unsigned char set_mode{0};
+    unsigned char red{0};
+    unsigned char green{0};
+    unsigned char blue{0};
+
+    unsigned int getID(void)
+    {
+        return 10;
+    }
+
+    bool decode(const CanlinkMsg &msg)
+    {
+        if (msg.len != 4) {
+            return false;
+        }
+        set_mode = msg.data[0];
+        red = msg.data[1];
+        green = msg.data[2];
+        blue = msg.data[3];
+        return true;
+    }
+
+    std::vector<unsigned char> encode(void)
+    {
+        std::vector<unsigned char> output;
+        output.push_back(set_mode);
+        output.push_back(red);
+        output.push_back(green);
+        output.push_back(blue);
+        return output;
+    }
+
+};
+
 // #20 TargetStatus
+#define CANLINK_CMD_ID_TARGET_STATUS 20
 struct TargetStatus {
     unsigned int hit_count;
 
@@ -42,6 +82,7 @@ struct TargetStatus {
 };
 
 // #21 PropoStatus
+#define CANLINK_CMD_ID_PROPO_STATUS 21
 struct PropoStatus {
     unsigned int axis_x;
     unsigned int axis_y;

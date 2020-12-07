@@ -10,6 +10,7 @@
 
 BaseUtil base_util;
 ADXL345_I2C accelerometer(PB_11, PB_10);
+IcLed3 ic_led3(PA_7, PA_6, PA_5);
 
 void canlinkCommand(CanlinkMsg canlink_msg){
   printf("can rt s:%d t:%u c:%u ", canlink_msg.source_id, canlink_msg.target_id, canlink_msg.command_id);
@@ -17,6 +18,13 @@ void canlinkCommand(CanlinkMsg canlink_msg){
     printf("%u ", canlink_msg.data[i]);
   }
   printf("\n");
+
+  if(canlink_msg.command_id == CANLINK_CMD_ID_LED_COLOR){
+    CanlinkConvertor::LedColor led_color;
+    led_color.decode(canlink_msg);
+    ic_led3.setBase(led_color.red, led_color.green, led_color.blue);
+    printf("ledcolor %u %u %u\n", led_color.red, led_color.green, led_color.blue);
+  }
   base_util.toggleLed(2);
 }
 
@@ -59,25 +67,16 @@ int main()
   accelerometer.setTapAxisControl(0x07);
   accelerometer.setInterruptEnableControl(0x40);
   accelerometer.setPowerControl(0x08);
-  thread_sleep_for(500);
+  thread_sleep_for(10);
 
   int ret = accelerometer.getDevId();
   printf("id: %i\n", ret);
 
-  IcLed3 ic_led3(PA_7, PA_6, PA_5);
-
-  thread_sleep_for(500);
-  ic_led3.setColor(10, 0, 0); // set_led(10, 0, 0);
-  thread_sleep_for(500);
-  ic_led3.setColor(0, 10, 0); // set_led(00, 10, 0);
-  thread_sleep_for(500);
-  ic_led3.setColor(0, 0, 10);  // set_led(00, 0, 10);
-  thread_sleep_for(500);
-  ic_led3.setColor(0, 0, 0);  // set_led(00, 0, 0);
-
   auto flag_2hz = base_util.registerTimer(2.0);
   auto flag_10hz = base_util.registerTimer(10.0);
   int hit_counter = 0;
+
+  ic_led3.setBase(0, 0, 10);
 
   while (true)
   {
@@ -90,18 +89,16 @@ int main()
       int source = accelerometer.getInterruptSource();
       if(source & 0x40){
         printf("hit\n");
-        ic_led3.setColor(10, 0, 0); //set_led(10, 0, 0);
+        ic_led3.setPalse(10, 0, 0);
         
         hit_counter++;
         CanlinkConvertor::TargetStatus target_status;
         target_status.hit_count = hit_counter;
         base_util.sendCanlink(1, target_status.getID(), target_status.encode());
       }
-      else{
-        ic_led3.setColor(0, 0, 10); //set_led(0, 0, 10);
-      }
     }
     base_util.process();
+    ic_led3.process();
     thread_sleep_for(10);
   }
 }
