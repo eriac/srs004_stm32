@@ -4,7 +4,7 @@
 // #include "MPU6050.h"
 #include "mbed.h"
 #include "base_util.h"
-#include "canlink_converter.h"
+#include "canlink_util.h"
 #include "ic_led3.h"
 
 
@@ -19,9 +19,12 @@ void canlinkCommand(CanlinkMsg canlink_msg){
   }
   printf("\n");
 
-  if(canlink_msg.command_id == CANLINK_CMD_ID_LED_COLOR){
-    CanlinkConvertor::LedColor led_color;
-    led_color.decode(canlink_msg);
+  if(canlink_msg.command_id == CANLINK_CMD_LED_COLOR){
+    std::vector<unsigned char> data;
+    for(int i=0;i<canlink_msg.len;i++)data.push_back(canlink_msg.data[i]);
+    
+    canlink_util::LedColor led_color;
+    led_color.decode(data, canlink_msg.ext_data);
     ic_led3.setBase(led_color.red, led_color.green, led_color.blue);
     printf("ledcolor %u %u %u\n", led_color.red, led_color.green, led_color.blue);
   }
@@ -92,9 +95,9 @@ int main()
         ic_led3.setPalse(10, 0, 0);
         
         hit_counter++;
-        CanlinkConvertor::TargetStatus target_status;
+        canlink_util::TargetStatus target_status;
         target_status.hit_count = hit_counter;
-        base_util.sendCanlink(1, target_status.getID(), target_status.encode());
+        base_util.sendCanlink(1, target_status.getID(), target_status.getData());
       }
     }
     base_util.process();

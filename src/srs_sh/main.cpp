@@ -3,12 +3,59 @@
 #include "mbed.h"
 #include "base_util.h"
 #include "sbus2.h"
-#include "canlink_converter.h"
-#include "canlink_serialiser.h"
+#include "canlink_util.h"
 
 BaseUtil base_util;
 
-RawSerial serial(PA_0, PA_1, 1000000);
+class SerialAdapter{
+public:
+  SerialAdapter(PinName td, PinName rd): serial_(td, rd, 1000000){
+    serial_.attach(callback(this, &SerialAdapter::rxCallback));
+    frame_valid_ = false;
+  }
+  void output(std::string code){
+    event_callback_t callback;
+    // std::string serial_code = code+"\n";
+    // serial_.write((uint8_t *)serial_code.c_str(), serial_code.size(), callback); 
+    serial_.printf("%s\n", code.c_str());
+  }
+  void registerCallback(Callback<void(std::string)> func){
+    callback_ = func;
+  }
+  void rxCallback(void){
+    char recv = serial_.getc();
+    if(!frame_valid_){
+      if(recv=='$'){
+        frame_valid_=true;
+      }
+    }
+    else{
+      if(recv=='\n'){
+        //ok
+      }
+      else if(true){
+        //add
+      } 
+    }
+
+    // serial_.putc(recv);
+    // if(recv=='a'){
+    //   base_util.toggleLed(2);
+    // }
+    // printf("recv: %c\n", recv);
+  }
+
+  RawSerial serial_;
+  Callback<void(std::string)> callback_;
+  bool frame_valid_;
+  unsigned char buffer[64];
+  int size_;
+  int max_size_{64};
+};
+
+SerialAdapter serial(PA_0, PA_1);
+
+// RawSerial serial(PA_0, PA_1, 1000000);
 // serial.attach([&]{
 //   char recv = serial.getc();
 //   serial.putc(recv);
@@ -26,10 +73,9 @@ void canlinkCommand(CanlinkMsg canlink_msg){
   //   printf("%u ", canlink_msg.data[i]);
   // }
   // printf("\n");
-  CanLinkSerialiser::CanLinkSerialiser cs;
-  cs.channel = 'A';
-  cs.source_id = canlink_msg.source_id;
-  cs.target_id = canlink_msg.target_id;
+  canlink_util::Serializer cs;
+  cs.source = canlink_msg.source_id;
+  cs.target = canlink_msg.target_id;
   cs.command = canlink_msg.command_id;
   cs.size = canlink_msg.len;
   for(int i=0;i<8;i++)cs.data[i] = canlink_msg.data[i];
@@ -38,7 +84,8 @@ void canlinkCommand(CanlinkMsg canlink_msg){
   std::string code = cs.encode();
 
   std::string serial_code = code+"\n";
-  serial.write((uint8_t *)serial_code.c_str(), serial_code.size(), callback); 
+  // serial.write((uint8_t *)serial_code.c_str(), serial_code.size(), callback); 
+  serial.output(code);
 
   printf("%s\n", code.c_str());
 
@@ -59,7 +106,7 @@ int main()
   // base_util.registerMonitor("imu", callback(imuCommand));
 
   base_util.registerCanlink(2, canlinkCommand);
-  base_util.registerCanlink(CANLINK_CMD_ID_TARGET_STATUS, canlinkCommand);
+  base_util.registerCanlink(20, canlinkCommand);
 
   auto flag_2hz = base_util.registerTimer(2.0);
   auto flag_50hz = base_util.registerTimer(50.0);
@@ -67,15 +114,13 @@ int main()
   {
     if(flag_2hz->check()){
       // printf("2hz\n");
-      // base_util.sendCanlink(2, 10, std::vector<unsigned char>{sbus2.getCh(0)/10, sbus2.getCh(1)/10, sbus2.getCh(2)/10, sbus2.getCh(3)/10});
-      // base_util.sendCanlink(2, 10, std::vector<unsigned char>{10, 20, 30, 40});
 
-      CanlinkConvertor::LedColor led_color;
-      led_color.set_mode = CanlinkConvertor::LedColor::SET_BASE_COLOR;
-      led_color.red = 10;
-      led_color.green = 10;
-      led_color.blue = 0;
-      base_util.sendCanlink(2, led_color.getID(), led_color.encode());
+      // canlink_util::LedColor led_color;
+      // led_color.set_mode = canlink_util::LedColor::SET_BASE_COLOR;
+      // led_color.red = 10;
+      // led_color.green = 10;
+      // led_color.blue = 0;
+      // base_util.sendCanlink(2, led_color.getID(), led_color.getData());
       base_util.toggleLed(1);
     }
     if(flag_50hz->check()){

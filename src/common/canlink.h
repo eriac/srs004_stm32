@@ -43,7 +43,7 @@ public:
     command_list_[command] = func;
   }
 
-  void send(unsigned char target_id, unsigned char command_id, std::vector<unsigned char> data){
+  void send(unsigned char target_id, unsigned char command_id, unsigned char extra, std::vector<unsigned char> data){
     CANMessage can_msg;
     can_msg.id = device_id_ << 22 | target_id << 15 | command_id << 8;
     can_msg.format = CANExtended;
@@ -52,6 +52,10 @@ public:
         can_msg.data[i] = data[i]; 
     }
     can_.write(can_msg);
+  }
+
+  void send(unsigned char target_id, unsigned char command_id, std::vector<unsigned char> data){
+    send(target_id, command_id, 0, data);
   }
 
   void process(void)
