@@ -8,6 +8,7 @@
 #include <std_msgs/String.h>
 #include <std_msgs/Int32.h>
 #include <std_msgs/ColorRGBA.h>
+#include <geometry_msgs/Twist.h>
 
 BaseUtil base_util;
 
@@ -68,33 +69,27 @@ std_msgs::String str_msg;
 ros::Publisher chatter("chatter", &str_msg);
 
 std_msgs::Int32 int_msg;
-ros::Publisher target_pub("target", &int_msg);
+ros::Publisher target_pub("target_status", &int_msg);
 
-void messageCb(const std_msgs::ColorRGBA& color_msg){
+void setLedCb(const std_msgs::ColorRGBA& color_msg){
   canlink_util::LedColor led_color;
   led_color.set_mode = canlink_util::LedColor::SET_BASE_COLOR;
   led_color.red = color_msg.r*255;
   led_color.green = color_msg.g*255;
   led_color.blue = color_msg.b*255;
-  base_util.sendCanlink(2, led_color.getID(), led_color.getData());
-
-  base_util.toggleLed(2);
+  base_util.sendCanlink(CANLINK_NODE_TR1, led_color.getID(), led_color.getData());
 }
+ros::Subscriber<std_msgs::ColorRGBA> set_led_sub("set_led", &setLedCb);
 
-ros::Subscriber<std_msgs::ColorRGBA> sub("toggle_led", &messageCb);
-// SerialAdapter serial(PA_0, PA_1);
-
-// RawSerial serial(PA_0, PA_1, 1000000);
-// serial.attach([&]{
-//   char recv = serial.getc();
-//   serial.putc(recv);
-//   if(recv=='a'){
-//     base_util.toggleLed(2);
-//   }
-//   // printf("recv: %c\n", recv);
-// });
-void nop(int value){
+void cmdVelCb(const geometry_msgs::Twist& twist_msg){
+  canlink_util::MoveTarget move_target;
+  move_target.vx = twist_msg.linear.x;
+  move_target.vy = twist_msg.linear.y;
+  move_target.rate = twist_msg.angular.z;
+  base_util.sendCanlink(CANLINK_NODE_WL, move_target.getID(), move_target.getData());
 }
+ros::Subscriber<geometry_msgs::Twist> cmd_vel_sub("cmd_vel", &cmdVelCb);
+
 
 void canlinkCommand(CanlinkMsg canlink_msg){
   // printf("Message received: s:%d t:%u, c:%u ", canlink_msg.source_id, canlink_msg.target_id, canlink_msg.command_id);
@@ -149,7 +144,8 @@ int main()
 	nh.initNode();
   nh.advertise(chatter);
   nh.advertise(target_pub);
-  nh.subscribe(sub);
+  nh.subscribe(set_led_sub);
+  nh.subscribe(cmd_vel_sub);
 
   auto flag_2hz = base_util.registerTimer(2.0);
   auto flag_50hz = base_util.registerTimer(50.0);

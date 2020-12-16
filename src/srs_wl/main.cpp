@@ -4,6 +4,7 @@
 #include "MPU6050.h"
 #include "mbed.h"
 #include "base_util.h"
+#include "canlink_util.h"
 
 MPU6050 imu(PC_9, PA_8);
 
@@ -35,26 +36,22 @@ public:
     enc_a_.mode(PullUp);
     enc_b_.mode(PullUp);
 
-    enc_a_.rise([this](){
-      if(this->enc_b_.read())this->counter_++;
-      else this->counter_--;
+    enc_a_.rise([&](){
+      if(enc_b_.read())counter_++;
+      else counter_--;
     });
-    // enc_a_.rise([&](){
-    //   if(enc_b_.read())counter_++;
-    //   else counter_--;
-    // });
-    // enc_a_.fall([&](){
-    //   if(enc_b_.read())counter_--;
-    //   else counter_++;
-    // });
-    // enc_b_.rise([&](){
-    //   if(enc_a_.read())counter_--;
-    //   else counter_++;
-    // });
-    // enc_b_.fall([&](){
-    //   if(enc_a_.read())counter_++;
-    //   else counter_--;
-    // });
+    enc_a_.fall([&](){
+      if(enc_b_.read())counter_--;
+      else counter_++;
+    });
+    enc_b_.rise([&](){
+      if(enc_a_.read())counter_--;
+      else counter_++;
+    });
+    enc_b_.fall([&](){
+      if(enc_a_.read())counter_++;
+      else counter_--;
+    });
   }
   void setPwm(float ach, float bch){
     mot_a_ = ach;
@@ -196,11 +193,17 @@ std::string motorCallback(std::vector<std::string> command)
 }
 
 void canlinkCommand(CanlinkMsg canlink_msg){
-  printf("Message received: s:%d t:%u, c:%u ", canlink_msg.source_id, canlink_msg.target_id, canlink_msg.command_id);
-  for(int i =0;i<canlink_msg.len;i++){
-    printf("%u ", canlink_msg.data[i]);
-  }
-  printf("\n");
+  // printf("Message received: s:%d t:%u, c:%u ", canlink_msg.source_id, canlink_msg.target_id, canlink_msg.command_id);
+  // for(int i =0;i<canlink_msg.len;i++){
+  //   printf("%u ", canlink_msg.data[i]);
+  // }
+  // base_util.toggleLed(2);
+  // printf("\n");
+  std::vector<unsigned char> data;
+  for(int i=0;i<canlink_msg.len;i++)data.push_back(canlink_msg.data[i]);
+  canlink_util::MoveTarget move_target;
+  move_target.decode(data, canlink_msg.ext_data);
+  printf("move_target: %f %f %f\n", move_target.vx, move_target.vy, move_target.rate);
 }
 
 int main()
@@ -210,12 +213,12 @@ int main()
   base_util.registerParam("GAIN_I", 0.0005f);
   base_util.loadParam();
 
-  base_util.setCanlinkID(1);
+  base_util.setCanlinkID(CANLINK_NODE_WL); // 3
   base_util.registerMonitor("can", monitorCanCallback);
   base_util.registerMonitor("mot", motorCallback);
   base_util.registerMonitor("imu", callback(imuCommand));
 
-  base_util.registerCanlink(2, canlinkCommand);
+  base_util.registerCanlink(CANLINK_CMD_MOVE_TARGET, canlinkCommand);
 
   auto flag_2hz = base_util.registerTimer(2.0);
   auto flag_50hz = base_util.registerTimer(50.0);

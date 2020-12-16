@@ -149,6 +149,17 @@ struct Serializer : public CanlinkMsg
     }
 };
 
+/* NODE ZONE
+ * 1: receiver(SH)
+ * 2: power controller (PW)
+ * 3: wheel controller (WL)
+ * 6: target sensor1 (TR1)
+ */
+#define CANLINK_NODE_SH 1
+#define CANLINK_NODE_PW 2
+#define CANLINK_NODE_WL 3
+#define CANLINK_NODE_TR1 6
+
 /* MSG ZONE
  * 0~15: system
  * 16~31: common command
