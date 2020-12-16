@@ -196,6 +196,61 @@ struct LedColor
     }
 };
 
+// #11 MoveTarget
+#define CANLINK_CMD_MOVE_TARGET 11
+struct MoveTarget
+{
+    float vx{0.0f};
+    float vy{0.0f};
+    float rate{0.0f};
+
+    union u_i_16{
+        int16_t signed_value;
+        uint16_t unsigned_value;
+    };
+    const static constexpr float scale = 1024.0f;
+
+    static unsigned char getID(void)
+    {
+        return CANLINK_CMD_MOVE_TARGET;
+    }
+    unsigned char getExtra(void) const
+    {
+        return 0;
+    }
+    std::vector<unsigned char> getData(void)
+    {
+        std::vector<unsigned char> output;
+        u_i_16 vx_temp, vy_temp, rate_temp;
+        vx_temp.signed_value = (int)(vx*scale);
+        vy_temp.signed_value = (int)(vy*scale);
+        rate_temp.signed_value = (int)(rate*scale);
+
+        output.push_back((vx_temp.unsigned_value>>0)&0xff);
+        output.push_back((vx_temp.unsigned_value>>8)&0xff);
+        output.push_back((vy_temp.unsigned_value>>0)&0xff);
+        output.push_back((vy_temp.unsigned_value>>8)&0xff);
+        output.push_back((rate_temp.unsigned_value>>0)&0xff);
+        output.push_back((rate_temp.unsigned_value>>8)&0xff);
+        return output;
+    }
+    bool decode(const std::vector<unsigned char> data, const unsigned char extra)
+    {        
+        if (data.size() != 6)
+        {
+            return false;
+        }
+        u_i_16 vx_temp, vy_temp, rate_temp;
+        vx_temp.unsigned_value= data[1]<<8|data[0];
+        vy_temp.unsigned_value= data[3]<<8|data[2];
+        rate_temp.unsigned_value= data[5]<<8|data[4];
+        vx = (float)vx_temp.signed_value/scale; 
+        vy = (float)vy_temp.signed_value/scale; 
+        rate = (float)rate_temp.signed_value/scale; 
+        return true;
+    }
+};
+
 // #20 TargetStatus
 #define CANLINK_CMD_TARGET_STATUS 20
 struct TargetStatus {
