@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eu
 
-TARGET_DIR=srs_wd
+TARGET_DIR=srs_wl
 TARGET_MCU=NUCLEO_F446RE
 TOOLCHAIN=GCC_ARM
 
