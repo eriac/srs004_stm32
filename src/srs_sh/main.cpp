@@ -4,6 +4,10 @@
 #include "base_util.h"
 #include "sbus2.h"
 #include "canlink_util.h"
+#include <ros.h>
+#include <std_msgs/String.h>
+#include <std_msgs/Int32.h>
+#include <std_msgs/ColorRGBA.h>
 
 BaseUtil base_util;
 
@@ -53,7 +57,32 @@ public:
   int max_size_{64};
 };
 
-SerialAdapter serial(PA_0, PA_1);
+class mySTM32 : public MbedHardware
+{
+public:
+  mySTM32(): MbedHardware(PA_0, PA_1, 1000000) {}; 
+};
+ros::NodeHandle_<mySTM32> nh;
+
+std_msgs::String str_msg;
+ros::Publisher chatter("chatter", &str_msg);
+
+std_msgs::Int32 int_msg;
+ros::Publisher target_pub("target", &int_msg);
+
+void messageCb(const std_msgs::ColorRGBA& color_msg){
+  canlink_util::LedColor led_color;
+  led_color.set_mode = canlink_util::LedColor::SET_BASE_COLOR;
+  led_color.red = color_msg.r*255;
+  led_color.green = color_msg.g*255;
+  led_color.blue = color_msg.b*255;
+  base_util.sendCanlink(2, led_color.getID(), led_color.getData());
+
+  base_util.toggleLed(2);
+}
+
+ros::Subscriber<std_msgs::ColorRGBA> sub("toggle_led", &messageCb);
+// SerialAdapter serial(PA_0, PA_1);
 
 // RawSerial serial(PA_0, PA_1, 1000000);
 // serial.attach([&]{
@@ -85,7 +114,15 @@ void canlinkCommand(CanlinkMsg canlink_msg){
 
   std::string serial_code = code+"\n";
   // serial.write((uint8_t *)serial_code.c_str(), serial_code.size(), callback); 
-  serial.output(code);
+  // serial.output(code);
+
+  std::vector<unsigned char> data;
+  for(int i=0;i<canlink_msg.len;i++)data.push_back(canlink_msg.data[i]);
+  canlink_util::TargetStatus target_status;
+  target_status.decode(data, canlink_msg.ext_data);
+
+  int_msg.data = target_status.hit_count;
+  target_pub.publish(&int_msg);
 
   printf("%s\n", code.c_str());
 
@@ -108,6 +145,12 @@ int main()
   base_util.registerCanlink(2, canlinkCommand);
   base_util.registerCanlink(20, canlinkCommand);
 
+  // rosserial
+	nh.initNode();
+  nh.advertise(chatter);
+  nh.advertise(target_pub);
+  nh.subscribe(sub);
+
   auto flag_2hz = base_util.registerTimer(2.0);
   auto flag_50hz = base_util.registerTimer(50.0);
   while (1)
@@ -122,6 +165,9 @@ int main()
       // led_color.blue = 0;
       // base_util.sendCanlink(2, led_color.getID(), led_color.getData());
       base_util.toggleLed(1);
+      str_msg.data = "hello rosserial";
+      chatter.publish( &str_msg );
+      nh.spinOnce();
     }
     if(flag_50hz->check()){
       if(sbus2.checkUpdate()){
