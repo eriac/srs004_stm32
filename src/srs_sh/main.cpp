@@ -9,6 +9,7 @@
 #include <std_msgs/Int32.h>
 #include <std_msgs/ColorRGBA.h>
 #include <geometry_msgs/Twist.h>
+#include <s4_msgs/JoyPropo.h>
 
 BaseUtil base_util;
 
@@ -70,6 +71,9 @@ ros::Publisher chatter("chatter", &str_msg);
 
 std_msgs::Int32 int_msg;
 ros::Publisher target_pub("target_status", &int_msg);
+
+s4_msgs::JoyPropo joy_propo_msg;
+ros::Publisher joy_propo_pub("joy_propo", &joy_propo_msg);
 
 void setLedCb(const std_msgs::ColorRGBA& color_msg){
   canlink_util::LedColor led_color;
@@ -144,6 +148,7 @@ int main()
 	nh.initNode();
   nh.advertise(chatter);
   nh.advertise(target_pub);
+  nh.advertise(joy_propo_pub);
   nh.subscribe(set_led_sub);
   nh.subscribe(cmd_vel_sub);
 
@@ -171,8 +176,41 @@ int main()
         // printf(" 0ch: %04u,  1ch: %04u,  2ch: %04u,  3ch: %04u\n", sbus2.getCh(0), sbus2.getCh(1), sbus2.getCh(2), sbus2.getCh(3));
         // printf(" 4ch: %04u,  5ch: %04u,  6ch: %04u,  7ch: %04u\n", sbus2.getCh(4), sbus2.getCh(5), sbus2.getCh(6), sbus2.getCh(7));
 
-        unsigned int sw_d = sbus2.getCh(7);
-        if(sw_d < 1024){
+        joy_propo_msg.x = -(float)((int)sbus2.getCh(1)-1024)/656.0;
+        joy_propo_msg.y = -(float)((int)sbus2.getCh(3)-1024)/656.0;
+        joy_propo_msg.z = -(float)((int)sbus2.getCh(2)-1024)/656.0;
+        joy_propo_msg.r = -(float)((int)sbus2.getCh(0)-1024)/656.0;
+        auto getPosition=[&](float value)->int{
+          int output = 0;
+          if(value<584){
+            output = s4_msgs::JoyPropo::SW_OFF;
+          }
+          else if(value<1464){
+            output = s4_msgs::JoyPropo::SW_MID;
+          }
+          else{
+            output = s4_msgs::JoyPropo::SW_ON;
+          }
+          return output;
+        };
+        joy_propo_msg.sw_a = getPosition(sbus2.getCh(4));
+        joy_propo_msg.sw_b = getPosition(sbus2.getCh(5));
+        joy_propo_msg.sw_c = getPosition(sbus2.getCh(6));
+        joy_propo_msg.sw_d = getPosition(sbus2.getCh(7));
+        joy_propo_pub.publish(&joy_propo_msg);
+
+        if(joy_propo_msg.sw_d == s4_msgs::JoyPropo::SW_ON){
+          canlink_util::PropoStatus propo_status;
+          propo_status.x = joy_propo_msg.x;
+          propo_status.y = joy_propo_msg.y;
+          propo_status.z = joy_propo_msg.z;
+          propo_status.r = joy_propo_msg.r;
+          propo_status.sw_a = joy_propo_msg.sw_a;
+          propo_status.sw_b = joy_propo_msg.sw_b;
+          propo_status.sw_c = joy_propo_msg.sw_c;
+          propo_status.sw_d = joy_propo_msg.sw_d;
+          base_util.sendCanlink(CANLINK_NODE_WL, propo_status.getID(), propo_status.getData());
+
           base_util.turnOnLed(2);
         }
         else{

@@ -292,4 +292,85 @@ struct TargetStatus {
     }
 };
 
+// #21 PropoStatus
+#define CANLINK_CMD_PROPO_STATUS 21
+struct PropoStatus {
+    float x{0.0f};
+    float y{0.0f};
+    float z{0.0f};
+    float r{0.0f};
+    unsigned char sw_a{0};
+    unsigned char sw_b{0};
+    unsigned char sw_c{0};
+    unsigned char sw_d{0};
+
+    union u_i_16{
+        int16_t signed_value;
+        uint16_t unsigned_value;
+    };
+    const int scale = 2000;
+
+    unsigned int getID(void)
+    {
+        return CANLINK_CMD_PROPO_STATUS;
+    }
+    unsigned char getExtra(void) const
+    {
+        return 0;
+    }
+    std::vector<unsigned char> getData(void)
+    {
+        std::vector<unsigned char> output;
+        u_i_16 x_temp, y_temp, z_temp, r_temp;
+        x_temp.signed_value = std::min(std::max((int)(x * scale), -scale), scale);
+        y_temp.signed_value = std::min(std::max((int)(y * scale), -scale), scale);
+        z_temp.signed_value = std::min(std::max((int)(z * scale), -scale), scale);
+        r_temp.signed_value = std::min(std::max((int)(r * scale), -scale), scale);
+        output.push_back(x_temp.unsigned_value & 0xff);
+        output.push_back(((y_temp.unsigned_value<<4) & 0xf0) | ((x_temp.unsigned_value>>8) & 0x0f));
+        output.push_back((y_temp.unsigned_value>>4)&0xff);
+        output.push_back(z_temp.unsigned_value&0xff);
+        output.push_back(((r_temp.unsigned_value<<4)&0xf0) | ((z_temp.unsigned_value>>8)&0x0f));
+        output.push_back((r_temp.unsigned_value>>4)&0xff);
+        unsigned char sw_bits=0;
+        sw_bits |= (sw_a<<0)&0x03;
+        sw_bits |= (sw_b<<2)&0x0c;
+        sw_bits |= (sw_c<<4)&0x30;
+        sw_bits |= (sw_d<<6)&0xc0;
+        output.push_back(sw_bits);
+        return output;
+    }
+    bool decode(const std::vector<unsigned char> data, const unsigned char extra)
+    {
+        if (data.size() != 7) {
+            return false;
+        }
+        u_i_16 x_temp, y_temp, z_temp, r_temp;
+        uint16_t x_add = data[1]&1<<3 ? 0xf000 : 0;
+        uint16_t y_add = data[2]&1<<7 ? 0xf000 : 0;
+        uint16_t z_add = data[4]&1<<3 ? 0xf000 : 0;
+        uint16_t r_add = data[5]&1<<7 ? 0xf000 : 0;
+        x_temp.unsigned_value = x_add | (data[1]<<8)&0xf00 | data[0]&0xff;
+        y_temp.unsigned_value = y_add | (data[2]<<4)&0xff0 | (data[1]>>4)&0x0f;
+        z_temp.unsigned_value = z_add | (data[4]<<8)&0xf00 | data[3]&0xff;
+        r_temp.unsigned_value = r_add | (data[5]<<4)&0xff0 | (data[4]>>4)&0x0f;
+        x = (float)x_temp.signed_value/scale;
+        y = (float)y_temp.signed_value/scale;
+        z = (float)z_temp.signed_value/scale;
+        r = (float)r_temp.signed_value/scale;
+        sw_a = (data[6]>>0)&0x03;
+        sw_b = (data[6]>>2)&0x03;
+        sw_c = (data[6]>>4)&0x03;
+        sw_d = (data[6]>>6)&0x03;
+        return true;
+    }
+    std::string getStr(void){
+        std::string output = "PropoStatus: ";
+        char str[32];
+        snprintf(str, 32, "%+5.2f %+5.2f %+5.2f %+5.2f %u %u %u %u", x, y, z, r, sw_a, sw_b, sw_c, sw_d);
+        output += std::string(str);
+        return output;
+    }
+};
+
 }; // namespace canlink_util

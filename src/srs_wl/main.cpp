@@ -32,6 +32,7 @@ public:
     counter_ = 0;
     last_counter_ = 0;
     notify_ = false;
+    mode_ = Mode::FREE;
 
     enc_a_.mode(PullUp);
     enc_b_.mode(PullUp);
@@ -53,22 +54,35 @@ public:
       else counter_--;
     });
   }
-  void setPwm(float ach, float bch){
-    mot_a_ = ach;
-    mot_b_ = bch;
+
+  void setSpeedTarget(float target){
+    mode_=Mode::SPEED;
+    target_speed_ = target;
+  }
+  void setPwmTarget(float target){
+    
+  }
+  void setFree(){
+    
   }
   void setTarget(float target){
-    target_ = target;
   }
-  void control(float dt){
-    float diff = (counter_ - last_counter_) / dt - target_;
-    result_.iterm = result_.iterm + diff * dt;
-    float output_raw = param_.f * target_ - param_.p * diff - param_.i * result_.iterm;
-    float output = std::min(std::max(output_raw, -1.0f), 1.0f);
-    if(output>0)setPwm(output, 0);
-    else setPwm(0, -output);
 
-    result_.target_speed = target_;
+  void control(float dt){
+    float diff = (counter_ - last_counter_) / dt - target_speed_;
+    result_.iterm = result_.iterm + diff * dt;
+    float output_raw = param_.f * target_speed_ - param_.p * diff - param_.i * result_.iterm;
+    float output = std::min(std::max(output_raw, -1.0f), 1.0f);
+    if(output>0){
+      mot_a_ = output;
+      mot_b_ = 0;
+    }
+    else{
+      mot_a_ = 0;
+      mot_b_ = -output;
+    }
+
+    result_.target_speed = target_speed_;
     result_.current_speed = (counter_ - last_counter_)  / dt;
     result_.output = output;
 
@@ -93,10 +107,11 @@ public:
   PwmOut mot_b_;
   InterruptIn enc_a_;
   InterruptIn enc_b_;
-  float target_;
+  float target_speed_;
   int counter_;
   int last_counter_;
   bool notify_;
+  enum class Mode{FREE, PWM, SPEED} mode_;
 };
 
 PwmMotor mot0(PA_6, PA_7, PA_0, PA_1);
@@ -154,37 +169,30 @@ std::string monitorCanCallback(std::vector<std::string> command)
 std::string motorCallback(std::vector<std::string> command)
 {
   std::string result = "";
-  if (command[1] == "notify")
+  if (command.size() == 3 && command[1] == "notify")
   {
-    if(command.size() == 3){
-      printf("notify\n");
-      int target = atoi(command[2].c_str());
-      if(target == 0) mot0.notify_ = true;
-      // else if(target == 1) mot1.notify_ = true;
-      // else if(target == 2) mot2.notify_ = true;
-      else return result;
-      result += "target" + std::to_string(target);
-    }
+    printf("notify\n");
+    int target = atoi(command[2].c_str());
+    if(target == 0) mot0.notify_ = true;
+    // else if(target == 1) mot1.notify_ = true;
+    // else if(target == 2) mot2.notify_ = true;
+    else return result;
+    result += "target" + std::to_string(target);
   }
-  else if (command[1] == "escape")
+  else if (1<=command.size() && command[1] == "escape")
   {
     mot0.notify_ = false;
     // mot1.notify_ = false;
     // mot2.notify_ = false;
   }
-  else if(command.size() == 3){
-    unsigned char va = atoi(command[1].c_str()) & 0x7f;
-    unsigned char vb = atoi(command[2].c_str()) & 0x7f;
-    // mot1.setPwm((float)va / 256, (float)vb / 256);
-
-    result += "a: " + std::to_string((float)va / 256) + ", ";
-    result += "b: " + std::to_string((float)vb / 256);
+  else if(command.size() == 3 && command[1]=="speed"){
+    int va = atoi(command[2].c_str());
+    mot0.setSpeedTarget(va);
+    mot1.setSpeedTarget(va);
+    mot2.setSpeedTarget(va);
+    result += "set speed " + std::to_string(va);
   }
   else if(command.size() == 2){
-    int va = atoi(command[1].c_str());
-    mot0.setTarget(va);
-    mot1.setTarget(va);
-    mot2.setTarget(va);
   }
   else{
     result += "too few args";
@@ -192,7 +200,7 @@ std::string motorCallback(std::vector<std::string> command)
   return result;
 }
 
-void canlinkCommand(CanlinkMsg canlink_msg){
+void moveTargetCallback(CanlinkMsg canlink_msg){
   // printf("Message received: s:%d t:%u, c:%u ", canlink_msg.source_id, canlink_msg.target_id, canlink_msg.command_id);
   // for(int i =0;i<canlink_msg.len;i++){
   //   printf("%u ", canlink_msg.data[i]);
@@ -204,6 +212,14 @@ void canlinkCommand(CanlinkMsg canlink_msg){
   canlink_util::MoveTarget move_target;
   move_target.decode(data, canlink_msg.ext_data);
   printf("move_target: %f %f %f\n", move_target.vx, move_target.vy, move_target.rate);
+}
+
+void propoStatusCallback(CanlinkMsg canlink_msg){
+  std::vector<unsigned char> data;
+  for(int i=0;i<canlink_msg.len;i++)data.push_back(canlink_msg.data[i]);
+  canlink_util::PropoStatus propo_status;
+  propo_status.decode(data, canlink_msg.ext_data);
+  printf("%s\n", propo_status.getStr().c_str());
 }
 
 int main()
@@ -218,7 +234,8 @@ int main()
   base_util.registerMonitor("mot", motorCallback);
   base_util.registerMonitor("imu", callback(imuCommand));
 
-  base_util.registerCanlink(CANLINK_CMD_MOVE_TARGET, canlinkCommand);
+  base_util.registerCanlink(CANLINK_CMD_MOVE_TARGET, moveTargetCallback);
+  base_util.registerCanlink(CANLINK_CMD_PROPO_STATUS, propoStatusCallback);
 
   auto flag_2hz = base_util.registerTimer(2.0);
   auto flag_50hz = base_util.registerTimer(50.0);
