@@ -219,7 +219,15 @@ void propoStatusCallback(CanlinkMsg canlink_msg){
   for(int i=0;i<canlink_msg.len;i++)data.push_back(canlink_msg.data[i]);
   canlink_util::PropoStatus propo_status;
   propo_status.decode(data, canlink_msg.ext_data);
-  printf("%s\n", propo_status.getStr().c_str());
+  // printf("%s\n", propo_status.getStr().c_str());
+
+  float sp0 = propo_status.x * cos(M_PI*5/6) + propo_status.y * sin(M_PI*5/6);
+  float sp1 = propo_status.x * cos(M_PI*3/2) + propo_status.y * sin(M_PI*3/2);
+  float sp2 = propo_status.x * cos(M_PI/6) + propo_status.y * sin(M_PI/6);
+  printf("%f %f %f\n", sp0, sp1, sp2);
+  mot0.setSpeedTarget(-sp0*1600);
+  mot1.setSpeedTarget(-sp1*1600);
+  mot2.setSpeedTarget(-sp2*1600);
 }
 
 int main()
@@ -266,6 +274,6 @@ int main()
       mot2.control(0.02);
     }
     base_util.process();
-    thread_sleep_for(10);
+    thread_sleep_for(1);
   }
 }
