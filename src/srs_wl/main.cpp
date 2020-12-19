@@ -226,7 +226,7 @@ int main()
 {
   base_util.registerParam("GAIN_F", 0.00015f);
   base_util.registerParam("GAIN_P", 0.0002f);
-  base_util.registerParam("GAIN_I", 0.0005f);
+  base_util.registerParam("GAIN_I", 0.0010f);
   base_util.loadParam();
 
   base_util.setCanlinkID(CANLINK_NODE_WL); // 3
