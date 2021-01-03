@@ -10,6 +10,7 @@
 #include <std_msgs/ColorRGBA.h>
 #include <geometry_msgs/Twist.h>
 #include <s4_msgs/JoyPropo.h>
+#include <s4_msgs/Odometry2D.h>
 
 BaseUtil base_util;
 
@@ -75,6 +76,9 @@ ros::Publisher target_pub("target_status", &int_msg);
 s4_msgs::JoyPropo joy_propo_msg;
 ros::Publisher joy_propo_pub("joy_propo", &joy_propo_msg);
 
+s4_msgs::Odometry2D odom_2d_msg;
+ros::Publisher odom_2d_pub("local_position/odom2d", &odom_2d_msg);
+
 void setLedCb(const std_msgs::ColorRGBA& color_msg){
   canlink_util::LedColor led_color;
   led_color.set_mode = canlink_util::LedColor::SET_BASE_COLOR;
@@ -94,37 +98,26 @@ void cmdVelCb(const geometry_msgs::Twist& twist_msg){
 }
 ros::Subscriber<geometry_msgs::Twist> cmd_vel_sub("cmd_vel", &cmdVelCb);
 
-
-void canlinkCommand(CanlinkMsg canlink_msg){
-  // printf("Message received: s:%d t:%u, c:%u ", canlink_msg.source_id, canlink_msg.target_id, canlink_msg.command_id);
-  // for(int i =0;i<canlink_msg.len;i++){
-  //   printf("%u ", canlink_msg.data[i]);
-  // }
-  // printf("\n");
-  canlink_util::Serializer cs;
-  cs.source = canlink_msg.source_id;
-  cs.target = canlink_msg.target_id;
-  cs.command = canlink_msg.command_id;
-  cs.size = canlink_msg.len;
-  for(int i=0;i<8;i++)cs.data[i] = canlink_msg.data[i];
-
-  event_callback_t callback;
-  std::string code = cs.encode();
-
-  std::string serial_code = code+"\n";
-  // serial.write((uint8_t *)serial_code.c_str(), serial_code.size(), callback); 
-  // serial.output(code);
-
+void targetStatusCommand(CanlinkMsg canlink_msg){
   std::vector<unsigned char> data;
   for(int i=0;i<canlink_msg.len;i++)data.push_back(canlink_msg.data[i]);
   canlink_util::TargetStatus target_status;
   target_status.decode(data, canlink_msg.ext_data);
-
   int_msg.data = target_status.hit_count;
   target_pub.publish(&int_msg);
+}
 
-  printf("%s\n", code.c_str());
-
+void localPositionCommand(CanlinkMsg canlink_msg){
+  std::vector<unsigned char> data;
+  for(int i=0;i<canlink_msg.len;i++)data.push_back(canlink_msg.data[i]);
+  canlink_util::LocalPosition local_position;
+  local_position.decode(data, canlink_msg.ext_data);
+  // int_msg.data = target_status.hit_count;
+  // target_pub.publish(&int_msg);
+  odom_2d_msg.pose.x = local_position.x;
+  odom_2d_msg.pose.y = local_position.y;
+  odom_2d_msg.pose.theta = local_position.theta;
+  odom_2d_pub.publish(&odom_2d_msg);
 }
 
 Sbus2Receiver sbus2(PC_10, PC_11);
@@ -141,14 +134,15 @@ int main()
   // base_util.registerMonitor("mot", motorCallback);
   // base_util.registerMonitor("imu", callback(imuCommand));
 
-  base_util.registerCanlink(2, canlinkCommand);
-  base_util.registerCanlink(20, canlinkCommand);
+  base_util.registerCanlink(CANLINK_CMD_TARGET_STATUS, targetStatusCommand);
+  base_util.registerCanlink(CANLINK_CMD_LOCAL_POSITION, localPositionCommand);
 
   // rosserial
 	nh.initNode();
   nh.advertise(chatter);
   nh.advertise(target_pub);
   nh.advertise(joy_propo_pub);
+  nh.advertise(odom_2d_pub);
   nh.subscribe(set_led_sub);
   nh.subscribe(cmd_vel_sub);
 
@@ -200,16 +194,21 @@ int main()
         joy_propo_pub.publish(&joy_propo_msg);
 
         if(joy_propo_msg.sw_d == s4_msgs::JoyPropo::SW_ON){
-          canlink_util::PropoStatus propo_status;
-          propo_status.x = joy_propo_msg.x;
-          propo_status.y = joy_propo_msg.y;
-          propo_status.z = joy_propo_msg.z;
-          propo_status.r = joy_propo_msg.r;
-          propo_status.sw_a = joy_propo_msg.sw_a;
-          propo_status.sw_b = joy_propo_msg.sw_b;
-          propo_status.sw_c = joy_propo_msg.sw_c;
-          propo_status.sw_d = joy_propo_msg.sw_d;
-          base_util.sendCanlink(CANLINK_NODE_WL, propo_status.getID(), propo_status.getData());
+          // canlink_util::PropoStatus propo_status;
+          // propo_status.x = joy_propo_msg.x;
+          // propo_status.y = joy_propo_msg.y;
+          // propo_status.z = joy_propo_msg.z;
+          // propo_status.r = joy_propo_msg.r;
+          // propo_status.sw_a = joy_propo_msg.sw_a;
+          // propo_status.sw_b = joy_propo_msg.sw_b;
+          // propo_status.sw_c = joy_propo_msg.sw_c;
+          // propo_status.sw_d = joy_propo_msg.sw_d;
+          // base_util.sendCanlink(CANLINK_NODE_WL, propo_status.getID(), propo_status.getData());
+          canlink_util::MoveTarget move_target;
+          move_target.vx = 0.2 * joy_propo_msg.x;
+          move_target.vy = 0.2 * joy_propo_msg.y;
+          move_target.rate = 1.0 * joy_propo_msg.r;
+          base_util.sendCanlink(CANLINK_NODE_WL, move_target.getID(), move_target.getData());
 
           base_util.turnOnLed(2);
         }

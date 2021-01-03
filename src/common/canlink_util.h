@@ -373,4 +373,64 @@ struct PropoStatus {
     }
 };
 
+// #22 LocalPosition
+#define CANLINK_CMD_LOCAL_POSITION 22
+struct LocalPosition {
+    float x{0.0f};
+    float y{0.0f};
+    float theta{0.0f};
+
+    union u_i_16{
+        int16_t signed_value;
+        uint16_t unsigned_value;
+    };
+    const int scale = 512;
+    const int max_value = 0x7fff;
+
+    unsigned int getID(void)
+    {
+        return CANLINK_CMD_LOCAL_POSITION;
+    }
+    unsigned char getExtra(void) const
+    {
+        return 0;
+    }
+    std::vector<unsigned char> getData(void)
+    {
+        std::vector<unsigned char> output;
+        u_i_16 x_temp, y_temp, t_temp;
+        x_temp.signed_value = std::min(std::max((int)(x * scale), -max_value), max_value);
+        y_temp.signed_value = std::min(std::max((int)(y * scale), -max_value), max_value);
+        t_temp.signed_value = std::min(std::max((int)(theta * scale), -max_value), max_value);
+        output.push_back((x_temp.unsigned_value>>0) & 0xff);
+        output.push_back((x_temp.unsigned_value>>8) & 0xff);
+        output.push_back((y_temp.unsigned_value>>0) & 0xff);
+        output.push_back((y_temp.unsigned_value>>8) & 0xff);
+        output.push_back((t_temp.unsigned_value>>0) & 0xff);
+        output.push_back((t_temp.unsigned_value>>8) & 0xff);
+        return output;
+    }
+    bool decode(const std::vector<unsigned char> data, const unsigned char extra)
+    {
+        if (data.size() != 6) {
+            return false;
+        }
+        u_i_16 x_temp, y_temp, t_temp;
+        x_temp.unsigned_value = (data[1]<<8)&0xff00 | data[0]&0xff;
+        y_temp.unsigned_value = (data[3]<<8)&0xff00 | data[2]&0xff;
+        t_temp.unsigned_value = (data[5]<<8)&0xff00 | data[4]&0xff;
+        x = (float)x_temp.signed_value/scale;
+        y = (float)y_temp.signed_value/scale;
+        theta = (float)t_temp.signed_value/scale;
+        return true;
+    }
+    std::string getStr(void){
+        std::string output = "LocalPosition: ";
+        char str[32];
+        snprintf(str, 32, "%+5.2f %+5.2f %+5.2f", x, y, theta);
+        output += std::string(str);
+        return output;
+    }
+};
+
 }; // namespace canlink_util

@@ -1,119 +1,15 @@
 #include <string>
 #include <vector>
+#include <mbed.h>
 // #include "ADXL345_I2C.h"
 #include "MPU6050.h"
-#include "mbed.h"
 #include "base_util.h"
 #include "canlink_util.h"
-
-MPU6050 imu(PC_9, PA_8);
+#include "pwm_motor.h"
 
 BaseUtil base_util;
 
-struct ControlStatus{
-  float target_speed;
-  float current_speed;
-  float iterm;
-  float output;
-  void print(){
-    printf("o: %+5.3f, t: %+7.1f, c: %+7.1f i: %7.1f\n", output, target_speed, current_speed, iterm);
-  }
-};
-
-struct ControlParameter{
-  float f;
-  float p;
-  float i;
-};
-
-class PwmMotor{
-public:
-  PwmMotor(PinName p_mot_a, PinName p_mot_b, PinName p_enc_a, PinName p_enc_b): mot_a_(p_mot_a), mot_b_(p_mot_b), enc_a_(p_enc_a), enc_b_(p_enc_b){
-    counter_ = 0;
-    last_counter_ = 0;
-    notify_ = false;
-    mode_ = Mode::FREE;
-
-    enc_a_.mode(PullUp);
-    enc_b_.mode(PullUp);
-
-    enc_a_.rise([&](){
-      if(enc_b_.read())counter_++;
-      else counter_--;
-    });
-    enc_a_.fall([&](){
-      if(enc_b_.read())counter_--;
-      else counter_++;
-    });
-    enc_b_.rise([&](){
-      if(enc_a_.read())counter_--;
-      else counter_++;
-    });
-    enc_b_.fall([&](){
-      if(enc_a_.read())counter_++;
-      else counter_--;
-    });
-  }
-
-  void setSpeedTarget(float target){
-    mode_=Mode::SPEED;
-    target_speed_ = target;
-  }
-  void setPwmTarget(float target){
-    
-  }
-  void setFree(){
-    
-  }
-  void setTarget(float target){
-  }
-
-  void control(float dt){
-    float diff = (counter_ - last_counter_) / dt - target_speed_;
-    result_.iterm = result_.iterm + diff * dt;
-    float output_raw = param_.f * target_speed_ - param_.p * diff - param_.i * result_.iterm;
-    float output = std::min(std::max(output_raw, -1.0f), 1.0f);
-    if(output>0){
-      mot_a_ = output;
-      mot_b_ = 0;
-    }
-    else{
-      mot_a_ = 0;
-      mot_b_ = -output;
-    }
-
-    result_.target_speed = target_speed_;
-    result_.current_speed = (counter_ - last_counter_)  / dt;
-    result_.output = output;
-
-    if(result_.target_speed == 0 && result_.current_speed == 0){
-      result_.iterm /= 2.0;
-    }
-
-    last_counter_ = counter_;
-  }
-  void print(){
-    if(notify_)result_.print();
-  }
-  void setParam(float f, float p, float i){
-    param_.f = f;
-    param_.p = p;
-    param_.i = i;
-  }
-
-  ControlStatus result_;
-  ControlParameter param_;
-  PwmOut mot_a_;
-  PwmOut mot_b_;
-  InterruptIn enc_a_;
-  InterruptIn enc_b_;
-  float target_speed_;
-  int counter_;
-  int last_counter_;
-  bool notify_;
-  enum class Mode{FREE, PWM, SPEED} mode_;
-};
-
+MPU6050 imu(PC_9, PA_8);
 PwmMotor mot0(PA_6, PA_7, PA_0, PA_1);
 PwmMotor mot1(PB_0, PB_1, PC_4, PC_5);
 PwmMotor mot2(PB_8, PB_9, PD_2, PB_3);
@@ -212,6 +108,21 @@ void moveTargetCallback(CanlinkMsg canlink_msg){
   canlink_util::MoveTarget move_target;
   move_target.decode(data, canlink_msg.ext_data);
   printf("move_target: %f %f %f\n", move_target.vx, move_target.vy, move_target.rate);
+
+  float palse_per_roll = 1600;
+  float wheel_radius = 0.019;
+  float wheel_base = 0.097;
+  float linear_scale = palse_per_roll / (wheel_radius * 2 * M_PI);
+  float angular_scale = palse_per_roll * wheel_base / (wheel_radius * 2 * M_PI);
+
+  // linear
+  float sp0 = linear_scale * (move_target.vx * cos(M_PI*5/6) + move_target.vy * sin(M_PI*5/6)) + angular_scale * move_target.rate;
+  float sp1 = linear_scale * (move_target.vx * cos(M_PI*3/2) + move_target.vy * sin(M_PI*3/2)) + angular_scale * move_target.rate;
+  float sp2 = linear_scale * (move_target.vx * cos(M_PI/6) + move_target.vy * sin(M_PI/6)) + angular_scale * move_target.rate;
+  printf("%f %f %f\n", sp0, sp1, sp2);
+  mot0.setSpeedTarget(-sp0);
+  mot1.setSpeedTarget(-sp1);
+  mot2.setSpeedTarget(-sp2);
 }
 
 void propoStatusCallback(CanlinkMsg canlink_msg){
@@ -247,6 +158,12 @@ int main()
 
   auto flag_2hz = base_util.registerTimer(2.0);
   auto flag_50hz = base_util.registerTimer(50.0);
+
+  float x = 0.0f;
+  float y = 0.0f;
+  float th = 0.0f;
+  thread_sleep_for(100);
+
   while (1)
   {
     if(flag_2hz->check()){
@@ -269,9 +186,31 @@ int main()
 
     }
     if(flag_50hz->check()){
-      mot0.control(0.02);
-      mot1.control(0.02);
-      mot2.control(0.02);
+      int diff0 = -mot0.control(0.02);
+      int diff1 = -mot1.control(0.02);
+      int diff2 = -mot2.control(0.02);
+
+      float palse_per_roll = 1600;
+      float wheel_radius = 0.019;
+      float wheel_base = 0.097;
+      float linear_scale = palse_per_roll / (wheel_radius * 2 * M_PI);
+      float angular_scale = palse_per_roll * wheel_base / (wheel_radius * 2 * M_PI);
+      float dx_r = 1/(3*linear_scale)*(diff0*2*cos(M_PI*5/6) + diff1*2*cos(M_PI*3/2) + diff2*2*cos(M_PI*1/6));
+      float dy_r = 1/(3*linear_scale)*(diff0*2*sin(M_PI*5/6) + diff1*2*sin(M_PI*3/2) + diff2*2*sin(M_PI*1/6));
+      float dt_r = 1/(3*angular_scale)*(diff0 + diff1 + diff2);
+      // printf("diff %+6.3f %+6.3f %+6.3f\n", dx_r/0.02, dy_r/0.02, dt_r/0.02);
+
+      //update
+      x += dx_r * cos(th + dt_r/2) - dy_r * sin(th + dt_r/2);
+      y += dx_r * sin(th + dt_r/2) + dy_r * cos(th + dt_r/2);
+      th += dt_r;
+      // printf("diff %+7.3f %+7.3f %+7.3f\n", x, y, th);
+
+      canlink_util::LocalPosition local_position;
+      local_position.x = x;
+      local_position.y = y;
+      local_position.theta = th;
+      base_util.sendCanlink(CANLINK_NODE_SH, local_position.getID(), local_position.getData());
     }
     base_util.process();
     thread_sleep_for(1);
