@@ -1,5 +1,5 @@
-#ifndef _ROS_s4_msgs_Odometry2D_h
-#define _ROS_s4_msgs_Odometry2D_h
+#ifndef _ROS_s4_msgs_OdometryLite2D_h
+#define _ROS_s4_msgs_OdometryLite2D_h
 
 #include <stdint.h>
 #include <string.h>
@@ -12,7 +12,7 @@
 namespace s4_msgs
 {
 
-  class Odometry2D : public ros::Msg
+  class OdometryLite2D : public ros::Msg
   {
     public:
       typedef std_msgs::Header _header_type;
@@ -22,7 +22,7 @@ namespace s4_msgs
       typedef s4_msgs::twist2D _twist_type;
       _twist_type twist;
 
-    Odometry2D():
+    OdometryLite2D():
       header(),
       pose(),
       twist()
@@ -47,7 +47,7 @@ namespace s4_msgs
      return offset;
     }
 
-    const char * getType(){ return "s4_msgs/Odometry2D"; };
+    const char * getType(){ return "s4_msgs/OdometryLite2D"; };
     const char * getMD5(){ return "7ff57babefd512ec42c8fac47d746056"; };
 
   };

@@ -8,9 +8,9 @@
 #include <std_msgs/String.h>
 #include <std_msgs/Int32.h>
 #include <std_msgs/ColorRGBA.h>
-#include <geometry_msgs/Twist.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <s4_msgs/JoyPropo.h>
-#include <s4_msgs/Odometry2D.h>
+#include <s4_msgs/OdometryLite2D.h>
 
 BaseUtil base_util;
 
@@ -76,8 +76,8 @@ ros::Publisher target_pub("target_status", &int_msg);
 s4_msgs::JoyPropo joy_propo_msg;
 ros::Publisher joy_propo_pub("joy_propo", &joy_propo_msg);
 
-s4_msgs::Odometry2D odom_2d_msg;
-ros::Publisher odom_2d_pub("local_position/odom2d", &odom_2d_msg);
+s4_msgs::OdometryLite2D odom_2d_msg;
+ros::Publisher odom_2d_pub("omni_cart/odom2d", &odom_2d_msg);
 
 void setLedCb(const std_msgs::ColorRGBA& color_msg){
   canlink_util::LedColor led_color;
@@ -89,14 +89,14 @@ void setLedCb(const std_msgs::ColorRGBA& color_msg){
 }
 ros::Subscriber<std_msgs::ColorRGBA> set_led_sub("set_led", &setLedCb);
 
-void cmdVelCb(const geometry_msgs::Twist& twist_msg){
+void cmdVelCb(const geometry_msgs::TwistStamped& twist_msg){
   canlink_util::MoveTarget move_target;
-  move_target.vx = twist_msg.linear.x;
-  move_target.vy = twist_msg.linear.y;
-  move_target.rate = twist_msg.angular.z;
+  move_target.vx = twist_msg.twist.linear.x;
+  move_target.vy = twist_msg.twist.linear.y;
+  move_target.rate = twist_msg.twist.angular.z;
   base_util.sendCanlink(CANLINK_NODE_WL, move_target.getID(), move_target.getData());
 }
-ros::Subscriber<geometry_msgs::Twist> cmd_vel_sub("cmd_vel", &cmdVelCb);
+ros::Subscriber<geometry_msgs::TwistStamped> cmd_vel_sub("omni_cart/cmd_vel", &cmdVelCb);
 
 void targetStatusCommand(CanlinkMsg canlink_msg){
   std::vector<unsigned char> data;
@@ -162,7 +162,6 @@ int main()
       base_util.toggleLed(1);
       str_msg.data = "hello rosserial";
       chatter.publish( &str_msg );
-      nh.spinOnce();
     }
     if(flag_50hz->check()){
       if(sbus2.checkUpdate()){
@@ -220,7 +219,8 @@ int main()
         printf("sbus2 lost\n");
       }
     }
+    nh.spinOnce();
     base_util.process();
-    thread_sleep_for(10);
+    thread_sleep_for(5);
   }
 }

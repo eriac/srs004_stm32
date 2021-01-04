@@ -21,7 +21,7 @@ public:
   Canlink(PinName rd_pin, PinName td_pin, int baudrate) : can_(rd_pin, td_pin, baudrate), device_id_(0)
   {
     can_.frequency(baudrate);
-    can_.mode(CAN::GlobalTest);
+    // can_.mode(CAN::GlobalTest);
     filter_handle_ = can_.filter(device_id_ << 15, 0x7f << 15, CANExtended);
     printf("filter: %u\n", filter_handle_);
 
