@@ -63,7 +63,7 @@ public:
 class mySTM32 : public MbedHardware
 {
 public:
-  mySTM32(): MbedHardware(PA_0, PA_1, 1000000) {}; 
+  mySTM32(): MbedHardware(PA_0, PA_1, 57600) {}; 
 };
 ros::NodeHandle_<mySTM32> nh;
 
@@ -152,13 +152,6 @@ int main()
   {
     if(flag_2hz->check()){
       // printf("2hz\n");
-
-      // canlink_util::LedColor led_color;
-      // led_color.set_mode = canlink_util::LedColor::SET_BASE_COLOR;
-      // led_color.red = 10;
-      // led_color.green = 10;
-      // led_color.blue = 0;
-      // base_util.sendCanlink(2, led_color.getID(), led_color.getData());
       base_util.toggleLed(1);
       str_msg.data = "hello rosserial";
       chatter.publish( &str_msg );
@@ -221,6 +214,6 @@ int main()
     }
     nh.spinOnce();
     base_util.process();
-    thread_sleep_for(5);
+    thread_sleep_for(1);
   }
 }
