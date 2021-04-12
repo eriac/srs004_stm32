@@ -21,22 +21,22 @@ public:
   Canlink(PinName rd_pin, PinName td_pin, int baudrate) : can_(rd_pin, td_pin, baudrate), device_id_(0)
   {
     can_.frequency(baudrate);
-    // can_.mode(CAN::GlobalTest);
-    filter_handle_ = can_.filter(device_id_ << 15, 0x7f << 15, CANExtended);
-    printf("filter: %u\n", filter_handle_);
+    // filter_handle_ = can_.filter(device_id_ << 15, 0x7f << 15, CANExtended); // not use filter for regain
 
     // can_.mode(CAN::Normal);
     // can_.attach(this, &Canlink::ew_callback, CAN::EwIrq);
     // can_.attach(this, &Canlink::do_callback, CAN::DoIrq);
     // can_.attach(this, &Canlink::wu_callback, CAN::WuIrq);
-    // can_.attach(this, &Canlink::ep_callback, CAN::EpIrq);
+    // can_.attach(this, &Canlink::ep_callback, CAN::EpIrq); // may cause freeze
     // can_.attach(this, &Canlink::al_callback, CAN::AlIrq);
     // can_.attach(this, &Canlink::be_callback, CAN::BeIrq);
+
+    suppress_send_ = false;
   }
 
   void setID(unsigned char id){
     device_id_ = id & 0x7f;
-    filter_handle_ = can_.filter(device_id_ << 15, 0x7f << 15, CANExtended, filter_handle_);
+    // filter_handle_ = can_.filter(device_id_ << 15, 0x7f << 15, CANExtended, filter_handle_); // not use filter
   }
 
   void register_func(unsigned char command, Callback<void(CanlinkMsg)> func)
@@ -61,16 +61,13 @@ public:
 
   void process(void)
   {
-    // unsigned char re = can_.rderror();
-    // unsigned char te = can_.tderror();
-    // if(re != 0 || te !=0){
-    //   printf("re: %u, tr: %u\n", re, te);
-    //   can_.reset();
-    //   // can_.monitor(true);
-    // }
-    // static int counter;
-    // counter++;
-    // printf("%02u %u %u %u %u %u %u %u %u\n", counter, rx_irq_counter_, tx_irq_counter_, ew_irq_counter_, do_irq_counter_, wu_irq_counter_, ep_irq_counter_, al_irq_counter_, be_irq_counter_);
+    unsigned char re = can_.rderror();
+    unsigned char te = can_.tderror();
+    if(!suppress_send_ && (128 <= re|| 128 <= te)){
+      suppress_send_ = true;
+      can_.monitor(true);
+      printf("suppress_send_ true\n");
+    }
 
     CANMessage can_msg;
     while(can_.read(can_msg)) {
@@ -91,7 +88,12 @@ public:
             }
         }
       }
-    } 
+      if(suppress_send_){
+        suppress_send_ = false;
+        can_.monitor(false);
+        printf("suppress_send_ false\n");
+      }
+    }
   }
 
 public:
@@ -99,6 +101,7 @@ public:
   unsigned char device_id_;
   std::map<unsigned int, Callback<void(CanlinkMsg)> > command_list_;
   int filter_handle_;
+  bool suppress_send_;
 
 // RxIrq for message received,
 // TxIrq for transmitted or aborted,

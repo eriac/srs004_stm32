@@ -130,13 +130,13 @@ public:
     {
       std::string s = command[3];
       bool digit = false;
-      bool sign = false;
+      // bool sign = false;
       bool point = false;
       bool other = false;
       for(auto it = s.begin(); it != s.end(); it++){
         if(std::isdigit(*it))digit = true;
-        else if(*it == '+')sign = true;
-        else if(*it == '-')sign = true;
+        // else if(*it == '+')sign = true;
+        // else if(*it == '-')sign = true;
         else if(*it == '.')point = true;
         else  other = true;
       }

@@ -130,7 +130,7 @@ struct Serializer : public CanlinkMsg
             return {str};
         std::vector<std::string> result;
         std::string tstr = str + separator;
-        long l = tstr.length(), sl = separator.length();
+        size_t l = tstr.length(), sl = separator.length();
         std::string::size_type pos = 0, prev = 0;
 
         for (; pos < l && (pos = tstr.find(separator, pos)) != std::string::npos; prev = (pos += sl))
@@ -165,6 +165,126 @@ struct Serializer : public CanlinkMsg
  * 16~31: common command
  * 32~47: common telemetry
  */
+
+// #1 HeartBeat
+#define CANLINK_CMD_HEART_BEAT 1
+struct HeartBeat
+{
+    static constexpr unsigned char MODE_UNKNOWN = 0;
+    static constexpr unsigned char MODE_BOOT = 1;
+    static constexpr unsigned char MODE_ACTIVE = 2;
+    static constexpr unsigned char MODE_FAULT = 3;
+    static constexpr unsigned char MODE_DEBUG = 4;
+    unsigned char mode{0};
+    static constexpr unsigned char STATUS_SIZE = 16;
+    bool warning[STATUS_SIZE]{0};
+    bool error[STATUS_SIZE]{0};
+
+    static unsigned char getID(void)
+    {
+        return CANLINK_CMD_HEART_BEAT;
+    }
+    unsigned char getExtra(void) const
+    {
+        return 0;
+    }
+    std::vector<unsigned char> getData(void)
+    {
+        std::vector<unsigned char> output;
+        unsigned char warning_0 = 0;
+        for(int i = 0; i< 8; i++){
+            if(warning[i])warning_0 |= 1<<i;
+        }
+        unsigned char warning_1 = 0;
+        for(int i = 0; i< 8; i++){
+            if(warning[i+8])warning_1 |= 1<<i;
+        }
+        unsigned char error_0 = 0;
+        for(int i = 0; i< 8; i++){
+            if(error[i])error_0 |= 1<<i;
+        }
+        unsigned char error_1 = 0;
+        for(int i = 0; i< 8; i++){
+            if(error[i+8])error_1 |= 1<<i;
+        }
+        output.push_back(mode);
+        output.push_back(warning_0);
+        output.push_back(warning_1);
+        output.push_back(error_0);
+        output.push_back(error_1);
+        return output;
+    }
+    bool decode(const std::vector<unsigned char> data, const unsigned char extra)
+    {
+        if (data.size() != 5)
+        {
+            return false;
+        }
+        mode = data[0];
+        for(int i = 0; i < 8; i++){
+            if(data[1]&(1<<i))warning[i]=true;
+            else warning[i]=false;
+        }
+        for(int i = 0; i < 8; i++){
+            if(data[2]&(1<<i))warning[i+8]=true;
+            else warning[i+8]=false;
+        }
+        for(int i = 0; i < 8; i++){
+            if(data[3]&(1<<i))error[i]=true;
+            else error[i]=false;
+        }
+        for(int i = 0; i < 8; i++){
+            if(data[4]&(1<<i))error[i+8]=true;
+            else error[i+8]=false;
+        }
+        return true;
+    }
+};
+
+// #2 BoardInfo
+#define CANLINK_CMD_BOARD_INFO 2
+struct BoardInfo
+{
+    unsigned int id{0};
+    unsigned char name[2];
+    unsigned int version{0};
+    unsigned char revision{0};
+
+    static unsigned char getID(void)
+    {
+        return CANLINK_CMD_BOARD_INFO;
+    }
+    unsigned char getExtra(void) const
+    {
+        return revision;
+    }
+    std::vector<unsigned char> getData(void)
+    {
+        std::vector<unsigned char> output;
+        output.push_back((id >> 0)&0xff);
+        output.push_back((id >> 8)&0xff);
+        output.push_back(name[0]);
+        output.push_back(name[1]);
+        output.push_back((version>>0)&0xff);
+        output.push_back((version>>8)&0xff);
+        output.push_back((version>>16)&0xff);
+        output.push_back((version>>24)&0xff);
+        return output;
+    }
+    bool decode(const std::vector<unsigned char> data, const unsigned char extra)
+    {
+        if (data.size() != 8)
+        {
+            return false;
+        }
+        id = (data[1] << 8)|data[0];
+        name[0] = data[2];
+        name[1] = data[3];
+        version = (data[7]<<24)|(data[6]<<16)|(data[5]<<8)|(data[4]<<0);
+        revision = extra;
+        return true;
+    }
+};
 
 // #10 LedColor
 #define CANLINK_CMD_LED_COLOR 10
@@ -350,10 +470,10 @@ struct PropoStatus {
         uint16_t y_add = data[2]&1<<7 ? 0xf000 : 0;
         uint16_t z_add = data[4]&1<<3 ? 0xf000 : 0;
         uint16_t r_add = data[5]&1<<7 ? 0xf000 : 0;
-        x_temp.unsigned_value = x_add | (data[1]<<8)&0xf00 | data[0]&0xff;
-        y_temp.unsigned_value = y_add | (data[2]<<4)&0xff0 | (data[1]>>4)&0x0f;
-        z_temp.unsigned_value = z_add | (data[4]<<8)&0xf00 | data[3]&0xff;
-        r_temp.unsigned_value = r_add | (data[5]<<4)&0xff0 | (data[4]>>4)&0x0f;
+        x_temp.unsigned_value = x_add | (((data[1]<<8)&0xf00) | (data[0]&0xff));
+        y_temp.unsigned_value = y_add | (((data[2]<<4)&0xff0) | ((data[1]>>4)&0x0f));
+        z_temp.unsigned_value = z_add | (((data[4]<<8)&0xf00) | (data[3]&0xff));
+        r_temp.unsigned_value = r_add | (((data[5]<<4)&0xff0) | ((data[4]>>4)&0x0f));
         x = (float)x_temp.signed_value/scale;
         y = (float)y_temp.signed_value/scale;
         z = (float)z_temp.signed_value/scale;
@@ -416,9 +536,9 @@ struct LocalPosition {
             return false;
         }
         u_i_16 x_temp, y_temp, t_temp;
-        x_temp.unsigned_value = (data[1]<<8)&0xff00 | data[0]&0xff;
-        y_temp.unsigned_value = (data[3]<<8)&0xff00 | data[2]&0xff;
-        t_temp.unsigned_value = (data[5]<<8)&0xff00 | data[4]&0xff;
+        x_temp.unsigned_value = ((data[1]<<8)&0xff00) | (data[0]&0xff);
+        y_temp.unsigned_value = ((data[3]<<8)&0xff00) | (data[2]&0xff);
+        t_temp.unsigned_value = ((data[5]<<8)&0xff00) | (data[4]&0xff);
         x = (float)x_temp.signed_value/scale;
         y = (float)y_temp.signed_value/scale;
         theta = (float)t_temp.signed_value/scale;
@@ -430,6 +550,57 @@ struct LocalPosition {
         snprintf(str, 32, "%+5.2f %+5.2f %+5.2f", x, y, theta);
         output += std::string(str);
         return output;
+    }
+};
+
+// #23 PowerStatus
+#define CANLINK_CMD_POWER_STATUS 23
+struct PowerStatus
+{
+    static constexpr unsigned char SOURCE_UNKNOWN = 0;
+    static constexpr unsigned char SOURCE_WALL = 1;
+    static constexpr unsigned char SOURCE_BATTERY1 = 2;
+    static constexpr unsigned char SOURCE_BATTERY2 = 3;
+
+    unsigned char source{0};
+    unsigned char system_remain_percent{0};
+    unsigned int voltage_wall_mv{0}; // [mV]
+    unsigned int voltage_bat1_mv{0}; // [mV]
+    unsigned int voltage_bat2_mv{0}; // [mV]
+
+    static unsigned char getID(void)
+    {
+        return CANLINK_CMD_BOARD_INFO;
+    }
+    unsigned char getExtra(void) const
+    {
+        return 0;
+    }
+    std::vector<unsigned char> getData(void)
+    {
+        std::vector<unsigned char> output;
+        output.push_back(source);
+        output.push_back(system_remain_percent & 0xff);
+        output.push_back((voltage_wall_mv >> 0) & 0xff);
+        output.push_back((voltage_wall_mv >> 8) & 0xff);
+        output.push_back((voltage_bat1_mv >> 0) & 0xff);
+        output.push_back((voltage_bat1_mv >> 8) & 0xff);
+        output.push_back((voltage_bat2_mv >> 0) & 0xff);
+        output.push_back((voltage_bat2_mv >> 8) & 0xff);
+        return output;
+    }
+    bool decode(const std::vector<unsigned char> data, const unsigned char extra)
+    {
+        if (data.size() != 8)
+        {
+            return false;
+        }
+        source = data[0];
+        system_remain_percent = data[1];
+        voltage_wall_mv = (data[3] <<8) | data[2];
+        voltage_bat1_mv = (data[5] <<8) | data[4];
+        voltage_bat2_mv = (data[7] <<8) | data[6];
+        return true;
     }
 };
 
