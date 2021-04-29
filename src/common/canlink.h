@@ -63,10 +63,10 @@ public:
   {
     unsigned char re = can_.rderror();
     unsigned char te = can_.tderror();
-    if(!suppress_send_ && (128 <= re|| 128 <= te)){
+    if(!suppress_send_ && (128 <= re|| 128 <= te) && (last_rderror_ < re || last_tderror_ < te)){
       suppress_send_ = true;
       can_.monitor(true);
-      printf("suppress_send_ true\n");
+      printf("suppress_send_ true (%u %u)\n", re, te);
     }
 
     CANMessage can_msg;
@@ -91,7 +91,11 @@ public:
       if(suppress_send_){
         suppress_send_ = false;
         can_.monitor(false);
-        printf("suppress_send_ false\n");
+        unsigned char re = can_.rderror();
+        unsigned char te = can_.tderror();
+        printf("suppress_send_ false (%u %u)\n", re, te);
+        last_rderror_ = re;
+        last_tderror_ = te;
       }
     }
   }
@@ -129,4 +133,6 @@ public:
   int ep_irq_counter_;
   int al_irq_counter_;
   int be_irq_counter_;
+  unsigned int last_rderror_{0};
+  unsigned int last_tderror_{0};
 };

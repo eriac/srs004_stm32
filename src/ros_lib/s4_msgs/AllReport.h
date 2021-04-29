@@ -13,37 +13,55 @@ namespace s4_msgs
   class AllReport : public ros::Msg
   {
     public:
-      typedef s4_msgs::ConnectionReport _connection_type;
-      _connection_type connection;
       typedef uint8_t _mode_type;
       _mode_type mode;
+      typedef s4_msgs::ConnectionReport _connection_type;
+      _connection_type connection;
+      typedef bool _booting_type;
+      _booting_type booting;
 
     AllReport():
+      mode(0),
       connection(),
-      mode(0)
+      booting(0)
     {
     }
 
     virtual int serialize(unsigned char *outbuffer) const
     {
       int offset = 0;
-      offset += this->connection.serialize(outbuffer + offset);
       *(outbuffer + offset + 0) = (this->mode >> (8 * 0)) & 0xFF;
       offset += sizeof(this->mode);
+      offset += this->connection.serialize(outbuffer + offset);
+      union {
+        bool real;
+        uint8_t base;
+      } u_booting;
+      u_booting.real = this->booting;
+      *(outbuffer + offset + 0) = (u_booting.base >> (8 * 0)) & 0xFF;
+      offset += sizeof(this->booting);
       return offset;
     }
 
     virtual int deserialize(unsigned char *inbuffer)
     {
       int offset = 0;
-      offset += this->connection.deserialize(inbuffer + offset);
       this->mode =  ((uint8_t) (*(inbuffer + offset)));
       offset += sizeof(this->mode);
+      offset += this->connection.deserialize(inbuffer + offset);
+      union {
+        bool real;
+        uint8_t base;
+      } u_booting;
+      u_booting.base = 0;
+      u_booting.base |= ((uint8_t) (*(inbuffer + offset + 0))) << (8 * 0);
+      this->booting = u_booting.real;
+      offset += sizeof(this->booting);
      return offset;
     }
 
     const char * getType(){ return "s4_msgs/AllReport"; };
-    const char * getMD5(){ return "e67660415c04ae5f66bab0c65f9a8543"; };
+    const char * getMD5(){ return "8fdfa53e01a634308539056347cbfe11"; };
 
   };
 

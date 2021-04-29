@@ -159,6 +159,7 @@ struct Serializer : public CanlinkMsg
 #define CANLINK_NODE_PW 2
 #define CANLINK_NODE_WL 3
 #define CANLINK_NODE_TR1 6
+#define CANLINK_NODE_ANY 127
 
 /* MSG ZONE
  * 0~15: system
@@ -245,10 +246,9 @@ struct HeartBeat
 #define CANLINK_CMD_BOARD_INFO 2
 struct BoardInfo
 {
-    unsigned int id{0};
     unsigned char name[2];
-    unsigned int version{0};
-    unsigned char revision{0};
+    unsigned int revision{0};
+    unsigned int id{0};
 
     static unsigned char getID(void)
     {
@@ -256,19 +256,19 @@ struct BoardInfo
     }
     unsigned char getExtra(void) const
     {
-        return revision;
+        return 0;
     }
     std::vector<unsigned char> getData(void)
     {
         std::vector<unsigned char> output;
-        output.push_back((id >> 0)&0xff);
-        output.push_back((id >> 8)&0xff);
         output.push_back(name[0]);
         output.push_back(name[1]);
-        output.push_back((version>>0)&0xff);
-        output.push_back((version>>8)&0xff);
-        output.push_back((version>>16)&0xff);
-        output.push_back((version>>24)&0xff);
+        output.push_back((revision >> 0)&0xff);
+        output.push_back((revision >> 8)&0xff);
+        output.push_back((id >> 0)&0xff);
+        output.push_back((id >> 8)&0xff);
+        output.push_back((id >> 16)&0xff);
+        output.push_back((id >> 24)&0xff);
         return output;
     }
     bool decode(const std::vector<unsigned char> data, const unsigned char extra)
@@ -277,11 +277,10 @@ struct BoardInfo
         {
             return false;
         }
-        id = (data[1] << 8)|data[0];
-        name[0] = data[2];
-        name[1] = data[3];
-        version = (data[7]<<24)|(data[6]<<16)|(data[5]<<8)|(data[4]<<0);
-        revision = extra;
+        name[0] = data[0];
+        name[1] = data[1];
+        revision = (data[3] << 8)|data[2];
+        id = (data[7] << 24)|(data[6] << 16)|(data[5] << 8)|data[4];
         return true;
     }
 };
@@ -570,7 +569,7 @@ struct PowerStatus
 
     static unsigned char getID(void)
     {
-        return CANLINK_CMD_BOARD_INFO;
+        return CANLINK_CMD_POWER_STATUS;
     }
     unsigned char getExtra(void) const
     {
@@ -597,9 +596,9 @@ struct PowerStatus
         }
         source = data[0];
         system_remain_percent = data[1];
-        voltage_wall_mv = (data[3] <<8) | data[2];
-        voltage_bat1_mv = (data[5] <<8) | data[4];
-        voltage_bat2_mv = (data[7] <<8) | data[6];
+        voltage_wall_mv = (data[3] <<8) | data[2]; 
+        voltage_bat1_mv = (data[5] <<8) | data[4]; 
+        voltage_bat2_mv = (data[7] <<8) | data[6]; 
         return true;
     }
 };

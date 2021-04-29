@@ -1,5 +1,5 @@
-#ifndef _ROS_s4_msgs_twist2D_h
-#define _ROS_s4_msgs_twist2D_h
+#ifndef _ROS_s4_msgs_Twist2D_h
+#define _ROS_s4_msgs_Twist2D_h
 
 #include <stdint.h>
 #include <string.h>
@@ -9,7 +9,7 @@
 namespace s4_msgs
 {
 
-  class twist2D : public ros::Msg
+  class Twist2D : public ros::Msg
   {
     public:
       typedef float _x_type;
@@ -19,7 +19,7 @@ namespace s4_msgs
       typedef float _rate_type;
       _rate_type rate;
 
-    twist2D():
+    Twist2D():
       x(0),
       y(0),
       rate(0)
@@ -101,7 +101,7 @@ namespace s4_msgs
      return offset;
     }
 
-    const char * getType(){ return "s4_msgs/twist2D"; };
+    const char * getType(){ return "s4_msgs/Twist2D"; };
     const char * getMD5(){ return "d14222437e0858447214b5352e29dfa4"; };
 
   };

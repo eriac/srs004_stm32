@@ -7,7 +7,7 @@
 #include "ros/msg.h"
 #include "std_msgs/Header.h"
 #include "geometry_msgs/Pose2D.h"
-#include "s4_msgs/twist2D.h"
+#include "s4_msgs/Twist2D.h"
 
 namespace s4_msgs
 {
@@ -19,7 +19,7 @@ namespace s4_msgs
       _header_type header;
       typedef geometry_msgs::Pose2D _pose_type;
       _pose_type pose;
-      typedef s4_msgs::twist2D _twist_type;
+      typedef s4_msgs::Twist2D _twist_type;
       _twist_type twist;
 
     OdometryLite2D():

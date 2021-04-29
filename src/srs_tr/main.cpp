@@ -81,6 +81,10 @@ int main()
 
   ic_led3.setBase(0, 0, 10);
 
+  unsigned long *uid = (unsigned long *)UID_BASE; 
+  printf("\r\nUnique ID: %08X %08X %08X %08X\r\n", uid[0], uid[1], uid[2], uid[3]);
+  printf("%s %s\n", __DATE__, __TIME__);
+
   while (true)
   {
     if(flag_2hz->check()){
