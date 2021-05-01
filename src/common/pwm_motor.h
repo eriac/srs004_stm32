@@ -24,6 +24,9 @@ public:
     notify_ = false;
     mode_ = Mode::FREE;
 
+    mot_a_.period(0.0001);
+    mot_b_.period(0.0001);
+
     enc_a_.mode(PullUp);
     enc_b_.mode(PullUp);
 
@@ -50,7 +53,8 @@ public:
     target_speed_ = target;
   }
   void setPwmTarget(float target){
-    
+    mode_=Mode::PWM;
+    target_pwm_ = target;
   }
   void setFree(){
     
@@ -62,10 +66,16 @@ public:
   }
 
   int control(float dt){
-    float diff = (counter_ - last_counter_) / dt - target_speed_;
-    result_.iterm = result_.iterm + diff * dt;
-    float output_raw = param_.f * target_speed_ - param_.p * diff - param_.i * result_.iterm;
-    float output = std::min(std::max(output_raw, -1.0f), 1.0f);
+    float output = 0.0;
+    if(mode_ == Mode::SPEED){
+      float diff = (counter_ - last_counter_) / dt - target_speed_;
+      result_.iterm = result_.iterm + diff * dt;
+      float output_raw = param_.f * target_speed_ - param_.p * diff - param_.i * result_.iterm;
+      output = std::min(std::max(output_raw, -1.0f), 1.0f);
+  }
+    else if(mode_ == Mode::PWM){
+      output = std::min(std::max(target_pwm_, -1.0f), 1.0f);
+    }
     if(output>0){
       mot_a_ = output;
       mot_b_ = 0;
@@ -103,6 +113,7 @@ public:
   InterruptIn enc_a_;
   InterruptIn enc_b_;
   float target_speed_;
+  float target_pwm_;
   int counter_;
   int last_counter_;
   bool notify_;

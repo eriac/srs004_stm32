@@ -88,6 +88,14 @@ std::string motorCallback(std::vector<std::string> command)
     mot2.setSpeedTarget(va);
     result += "set speed " + std::to_string(va);
   }
+  else if(command.size() == 3 && command[1]=="pwm"){
+    int va = atoi(command[2].c_str());
+    float pwm = (float)va / 100;
+    mot0.setPwmTarget(pwm);
+    mot1.setPwmTarget(pwm);
+    mot2.setPwmTarget(pwm);
+    result += "set pwm " + std::to_string(pwm);
+  }
   else if(command.size() == 2){
   }
   else{
@@ -184,6 +192,18 @@ int main()
       mot1.setParam(gain_f, gain_p, gain_i);
       mot2.setParam(gain_f, gain_p, gain_i);
 
+      // heart_beat
+      canlink_util::HeartBeat heart_beat;
+      heart_beat.mode = canlink_util::HeartBeat::MODE_ACTIVE;
+      base_util.sendCanlink(CANLINK_NODE_SH, heart_beat.getID(), heart_beat.getData());
+
+      // board_info
+      canlink_util::BoardInfo board_info;
+      unsigned long *uid = (unsigned long *)UID_BASE; 
+      strncpy((char *)board_info.name, "WL", 2);
+      board_info.id = uid[0];
+      board_info.revision = 0;
+      base_util.sendCanlink(CANLINK_NODE_SH, board_info.getID(), board_info.getData());
     }
     if(flag_50hz->check()){
       int diff0 = -mot0.control(0.02);
@@ -201,10 +221,20 @@ int main()
       // printf("diff %+6.3f %+6.3f %+6.3f\n", dx_r/0.02, dy_r/0.02, dt_r/0.02);
 
       //update
-      x += dx_r * cos(th + dt_r/2) - dy_r * sin(th + dt_r/2);
-      y += dx_r * sin(th + dt_r/2) + dy_r * cos(th + dt_r/2);
+      float local_dx = dx_r * cos(th + dt_r/2) - dy_r * sin(th + dt_r/2);
+      float local_dy = dx_r * sin(th + dt_r/2) + dy_r * cos(th + dt_r/2);
+      // printf("diff %+7.3f %+7.3f %+7.3f\n", local_dx*50, local_dy*50, dt_r*50);
+      
+      x += local_dx;
+      y += local_dy;
       th += dt_r;
       // printf("diff %+7.3f %+7.3f %+7.3f\n", x, y, th);
+
+      canlink_util::LocalVelocity local_velocity;
+      local_velocity.x = local_dx * 50.0;
+      local_velocity.y = local_dy * 50.0;
+      local_velocity.theta = dt_r * 50.0;
+      base_util.sendCanlink(CANLINK_NODE_SH, local_velocity.getID(), local_velocity.getData());
 
       canlink_util::LocalPosition local_position;
       local_position.x = x;

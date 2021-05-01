@@ -54,12 +54,20 @@ std::string ledCommand(std::vector<std::string> command)
   return result;
 }
 
+int hit_count = 0;
+std::string hitCommand(std::vector<std::string> command)
+{
+  std::string result = "";
+  result += "hit count: " + std::to_string(hit_count) + "\n";
+  return result;
+}
+
 
 int main()
 {
   base_util.registerMonitor("led", ledCommand);
-  base_util.setCanlinkID(2);
-  base_util.registerCanlink(10, canlinkCommand);
+  base_util.setCanlinkID(CANLINK_NODE_TR1);
+  base_util.registerCanlink(CANLINK_CMD_LED_COLOR, canlinkCommand);
 
   // TAP
   accelerometer.setPowerControl(0x00);
@@ -76,8 +84,8 @@ int main()
   printf("id: %i\n", ret);
 
   auto flag_2hz = base_util.registerTimer(2.0);
+  auto flag_5hz = base_util.registerTimer(5.0);
   auto flag_10hz = base_util.registerTimer(10.0);
-  int hit_counter = 0;
 
   ic_led3.setBase(0, 0, 10);
 
@@ -89,6 +97,25 @@ int main()
   {
     if(flag_2hz->check()){
       base_util.toggleLed(1);
+
+      // heart_beat
+      canlink_util::HeartBeat heart_beat;
+      heart_beat.mode = canlink_util::HeartBeat::MODE_ACTIVE;
+      base_util.sendCanlink(CANLINK_NODE_SH, heart_beat.getID(), heart_beat.getData());
+
+      // board_info
+      canlink_util::BoardInfo board_info;
+      unsigned long *uid = (unsigned long *)UID_BASE; 
+      strncpy((char *)board_info.name, "TR", 2);
+      board_info.id = uid[0];
+      board_info.revision = 0;
+      base_util.sendCanlink(CANLINK_NODE_SH, board_info.getID(), board_info.getData());
+
+    }
+    if(flag_5hz->check()){
+        canlink_util::TargetStatus target_status;
+        target_status.hit_count = hit_count;
+        base_util.sendCanlink(CANLINK_NODE_SH, target_status.getID(), target_status.getData());
     }
     if(flag_10hz->check()){
       int readings[3] = { 0, 0, 0 };
@@ -97,11 +124,7 @@ int main()
       if(source & 0x40){
         printf("hit\n");
         ic_led3.setPalse(10, 0, 0);
-        
-        hit_counter++;
-        canlink_util::TargetStatus target_status;
-        target_status.hit_count = hit_counter;
-        base_util.sendCanlink(1, target_status.getID(), target_status.getData());
+        hit_count++;
       }
     }
     base_util.process();

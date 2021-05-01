@@ -158,7 +158,14 @@ struct Serializer : public CanlinkMsg
 #define CANLINK_NODE_SH 1
 #define CANLINK_NODE_PW 2
 #define CANLINK_NODE_WL 3
-#define CANLINK_NODE_TR1 6
+#define CANLINK_NODE_GN 4
+#define CANLINK_NODE_UI 5
+#define CANLINK_NODE_LN 6
+#define CANLINK_NODE_SN 7
+#define CANLINK_NODE_TR1 8
+#define CANLINK_NODE_TR2 9
+#define CANLINK_NODE_TR3 10
+#define CANLINK_NODE_LT 11
 #define CANLINK_NODE_ANY 127
 
 /* MSG ZONE
@@ -600,6 +607,67 @@ struct PowerStatus
         voltage_bat1_mv = (data[5] <<8) | data[4]; 
         voltage_bat2_mv = (data[7] <<8) | data[6]; 
         return true;
+    }
+};
+
+// #24 LocalVelocity
+#define CANLINK_CMD_LOCAL_VELOCITY 24
+struct LocalVelocity {
+    float x{0.0f};
+    float y{0.0f};
+    float theta{0.0f};
+
+    union u_i_16{
+        int16_t signed_value;
+        uint16_t unsigned_value;
+    };
+    const int linear_scale = 4096;
+    const int angular_scale = 1024;
+    const int max_value = 0x7fff;
+
+    unsigned int getID(void)
+    {
+        return CANLINK_CMD_LOCAL_VELOCITY;
+    }
+    unsigned char getExtra(void) const
+    {
+        return 0;
+    }
+    std::vector<unsigned char> getData(void)
+    {
+        std::vector<unsigned char> output;
+        u_i_16 x_temp, y_temp, t_temp;
+        x_temp.signed_value = std::min(std::max((int)(x * linear_scale), -max_value), max_value);
+        y_temp.signed_value = std::min(std::max((int)(y * linear_scale), -max_value), max_value);
+        t_temp.signed_value = std::min(std::max((int)(theta * angular_scale), -max_value), max_value);
+        output.push_back((x_temp.unsigned_value>>0) & 0xff);
+        output.push_back((x_temp.unsigned_value>>8) & 0xff);
+        output.push_back((y_temp.unsigned_value>>0) & 0xff);
+        output.push_back((y_temp.unsigned_value>>8) & 0xff);
+        output.push_back((t_temp.unsigned_value>>0) & 0xff);
+        output.push_back((t_temp.unsigned_value>>8) & 0xff);
+        return output;
+    }
+    bool decode(const std::vector<unsigned char> data, const unsigned char extra)
+    {
+        if (data.size() != 6) {
+            return false;
+        }
+        u_i_16 x_temp, y_temp, t_temp;
+        x_temp.unsigned_value = ((data[1]<<8)&0xff00) | (data[0]&0xff);
+        y_temp.unsigned_value = ((data[3]<<8)&0xff00) | (data[2]&0xff);
+        t_temp.unsigned_value = ((data[5]<<8)&0xff00) | (data[4]&0xff);
+        x = (float)x_temp.signed_value/linear_scale;
+        y = (float)y_temp.signed_value/linear_scale;
+        theta = (float)t_temp.signed_value/angular_scale;
+        return true;
+    }
+    std::string getStr(void){
+        std::string output = "LocalVelocity: ";
+        char str[32];
+        snprintf(str, 32, "%+5.2f %+5.2f %+5.2f", x, y, theta);
+        output += std::string(str);
+        return output;
     }
 };
 

@@ -76,7 +76,7 @@ std_msgs::String str_msg;
 ros::Publisher chatter("chatter", &str_msg);
 
 std_msgs::Int32 int_msg;
-ros::Publisher target_pub("target_status", &int_msg);
+ros::Publisher target_pub("targets/status1", &int_msg);
 
 s4_msgs::JoyPropo joy_propo_msg;
 ros::Publisher joy_propo_pub("joy_propo", &joy_propo_msg);
@@ -101,7 +101,7 @@ void setLedCb(const std_msgs::ColorRGBA& color_msg){
   led_color.blue = color_msg.b*255;
   base_util.sendCanlink(CANLINK_NODE_TR1, led_color.getID(), led_color.getData());
 }
-ros::Subscriber<std_msgs::ColorRGBA> set_led_sub("set_led", &setLedCb);
+ros::Subscriber<std_msgs::ColorRGBA> set_led_sub("targets/set_led1", &setLedCb);
 
 void cmdVelCb(const geometry_msgs::TwistStamped& twist_msg){
   canlink_util::MoveTarget move_target;
