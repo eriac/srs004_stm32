@@ -17,8 +17,12 @@ DigitalIn in_wall_v(PA_4);
 DigitalIn in_bat1_v(PA_5);
 DigitalIn in_bat2_v(PA_6);
 
+DigitalIn in_bat2_fault(PB_10);
+DigitalIn in_bat2_status(PB_11);
+
 DigitalIn in_bat1_fault(PB_0);
 DigitalIn in_bat1_status(PB_1);
+
 
 BaseUtil base_util;
 
@@ -50,6 +54,8 @@ int main()
   in_bat2_v.mode(PullNone);
   in_bat1_fault.mode(PullUp);
   in_bat1_status.mode(PullUp);
+  in_bat2_fault.mode(PullUp);
+  in_bat2_status.mode(PullUp);
 
   thread_sleep_for(200);
 
@@ -97,20 +103,11 @@ int main()
       base_util.sendCanlink(CANLINK_NODE_SH, power_status.getID(), power_status.getData());
     }
     if(flag_10hz->check()){
-      float adc0 = adc_wall * 3.3 * 110 / 5.1; 
-      float adc1 = adc_bat1 * 3.3 * 110 / 5.1; 
-      float adc2 = adc_bat2 * 3.3 * 110 / 5.1; 
-      unsigned int bat1_f = in_bat1_fault;
-      unsigned int bat1_s = in_bat1_status;
-
-      wall_v = 0.0;
-
-      float bat1_rate = fabs(bat1_v - adc1) < 1.0 ? 0.1 : 0.7;
-      bat1_v = (1 - bat1_rate) * bat1_v + bat1_rate * adc1;
-      bat1_en = ! bat1_s;
-
-      bat2_v = 0.0;
-      bat2_en = false;
+      wall_v = 3.3 * adc_wall.read_u16() / 65535 *115.1 / 5.1;
+      bat1_v = 3.3 * adc_bat1.read_u16() / 65535 *115.1 / 5.1;
+      bat1_en = ! in_bat1_status;
+      bat2_v = 3.3 * adc_bat2.read_u16() / 65535 *115.1 / 5.1;
+      bat2_en = ! in_bat2_status;
     }
     base_util.process();
     thread_sleep_for(10);

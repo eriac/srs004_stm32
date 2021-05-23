@@ -68,6 +68,8 @@ public:
       can_.monitor(true);
       printf("suppress_send_ true (%u %u)\n", re, te);
     }
+    last_rderror_ = re;
+    last_tderror_ = te;
 
     CANMessage can_msg;
     while(can_.read(can_msg)) {
