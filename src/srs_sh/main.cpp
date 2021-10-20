@@ -9,13 +9,15 @@
 #include <std_msgs/Int32.h>
 #include <std_msgs/ColorRGBA.h>
 #include <geometry_msgs/TwistStamped.h>
+#include <s4_msgs/Pose2DStamped.h>
 #include <diagnostic_msgs/DiagnosticArray.h>
 #include <diagnostic_msgs/DiagnosticStatus.h>
 #include <s4_msgs/JoyPropo.h>
-#include <s4_msgs/OdometryLite2D.h>
 #include <s4_msgs/BoardInfo.h>
 #include <s4_msgs/HeartBeat.h>
 #include <s4_msgs/PowerStatus.h>
+#include <s4_msgs/MotorValue.h>
+#include <s4_msgs/Twist2DStamped.h>
 
 BaseUtil base_util;
 
@@ -70,10 +72,7 @@ class mySTM32 : public MbedHardware
 public:
   mySTM32(): MbedHardware(PA_0, PA_1, 57600) {}; 
 };
-ros::NodeHandle_<mySTM32> nh;
-
-std_msgs::String str_msg;
-ros::Publisher chatter("chatter", &str_msg);
+ros::NodeHandle_<mySTM32, 25, 25, 1024, 1024> nh;
 
 std_msgs::Int32 int_msg;
 ros::Publisher target_pub("targets/status1", &int_msg);
@@ -81,8 +80,20 @@ ros::Publisher target_pub("targets/status1", &int_msg);
 s4_msgs::JoyPropo joy_propo_msg;
 ros::Publisher joy_propo_pub("joy_propo", &joy_propo_msg);
 
-s4_msgs::OdometryLite2D odom_2d_msg;
-ros::Publisher odom_2d_pub("omni_cart/odom2d", &odom_2d_msg);
+s4_msgs::Pose2DStamped pose_2d_stamped_msg;
+ros::Publisher pose_2d_stamped_pub("omni_cart/pose_2d_stamped", &pose_2d_stamped_msg);
+
+s4_msgs::Twist2DStamped twist_2d_stamped_msg;
+ros::Publisher twist_2d_stamped_pub("omni_cart/twist_2d_stamped", &twist_2d_stamped_msg);
+
+s4_msgs::MotorValue motor_status_msg;
+ros::Publisher motor_status_pub("omni_cart/motor/status", &motor_status_msg);
+
+s4_msgs::MotorValue motor_target_msg;
+ros::Publisher motor_target_pub("omni_cart/motor/target", &motor_target_msg);
+
+s4_msgs::MotorValue motor_output_msg;
+ros::Publisher motor_output_pub("omni_cart/motor/output", &motor_output_msg);
 
 s4_msgs::HeartBeat heart_beat_msg;
 ros::Publisher heart_beat_pub("common/heart_beat", &heart_beat_msg);
@@ -110,7 +121,7 @@ void cmdVelCb(const geometry_msgs::TwistStamped& twist_msg){
   move_target.rate = twist_msg.twist.angular.z;
   base_util.sendCanlink(CANLINK_NODE_WL, move_target.getID(), move_target.getData());
 }
-ros::Subscriber<geometry_msgs::TwistStamped> cmd_vel_sub("omni_cart/cmd_vel", &cmdVelCb);
+ros::Subscriber<geometry_msgs::TwistStamped> cmd_vel_sub("omni_cart/cmd_vel_stamped", &cmdVelCb);
 
 void targetStatusCommand(CanlinkMsg canlink_msg){
   std::vector<unsigned char> data;
@@ -126,12 +137,25 @@ void localPositionCommand(CanlinkMsg canlink_msg){
   for(int i=0;i<canlink_msg.len;i++)data.push_back(canlink_msg.data[i]);
   canlink_util::LocalPosition local_position;
   local_position.decode(data, canlink_msg.ext_data);
-  // int_msg.data = target_status.hit_count;
-  // target_pub.publish(&int_msg);
-  odom_2d_msg.pose.x = local_position.x;
-  odom_2d_msg.pose.y = local_position.y;
-  odom_2d_msg.pose.theta = local_position.theta;
-  odom_2d_pub.publish(&odom_2d_msg);
+  pose_2d_stamped_msg.header.frame_id = "odom";
+  pose_2d_stamped_msg.header.stamp = nh.now();
+  pose_2d_stamped_msg.pose.x = local_position.x;
+  pose_2d_stamped_msg.pose.y = local_position.y;
+  pose_2d_stamped_msg.pose.theta = local_position.theta;
+  pose_2d_stamped_pub.publish(&pose_2d_stamped_msg);
+}
+
+void localVelocityCommand(CanlinkMsg canlink_msg){
+  std::vector<unsigned char> data;
+  for(int i=0;i<canlink_msg.len;i++)data.push_back(canlink_msg.data[i]);
+  canlink_util::LocalVelocity local_velocity;
+  local_velocity.decode(data, canlink_msg.ext_data);
+  twist_2d_stamped_msg.header.frame_id = "odom";
+  twist_2d_stamped_msg.header.stamp = nh.now();
+  twist_2d_stamped_msg.twist.x = local_velocity.x;
+  twist_2d_stamped_msg.twist.y = local_velocity.y;
+  twist_2d_stamped_msg.twist.rate = local_velocity.theta;
+  twist_2d_stamped_pub.publish(&twist_2d_stamped_msg);
 }
 
 struct DeviceStatus{
@@ -186,6 +210,19 @@ void powerStatusCommand(CanlinkMsg canlink_msg){
   power_status_pub.publish(&power_status_msg);
 }
 
+void motorStatusCommand(CanlinkMsg canlink_msg){
+  std::vector<unsigned char> data;
+  for(int i=0;i<canlink_msg.len;i++)data.push_back(canlink_msg.data[i]);
+  canlink_util::MotorStatus motor_status;
+  motor_status.decode(data, canlink_msg.ext_data);
+
+  motor_status_msg.mot0 = motor_status.mot0;
+  motor_status_msg.mot1 = motor_status.mot1;
+  motor_status_msg.mot2 = motor_status.mot2;
+  motor_status_msg.mot3 = motor_status.mot3;
+  // motor_status_pub.publish(&motor_status_msg);
+}
+
 Sbus2Receiver sbus2(PC_10, PC_11);
 
 int main()
@@ -202,19 +239,26 @@ int main()
 
   base_util.registerCanlink(CANLINK_CMD_TARGET_STATUS, targetStatusCommand);
   base_util.registerCanlink(CANLINK_CMD_LOCAL_POSITION, localPositionCommand);
+  base_util.registerCanlink(CANLINK_CMD_LOCAL_VELOCITY, localVelocityCommand);
   base_util.registerCanlink(CANLINK_CMD_HEART_BEAT, heartBeatCommand);
   base_util.registerCanlink(CANLINK_CMD_BOARD_INFO, boardInfoCommand);
   base_util.registerCanlink(CANLINK_CMD_POWER_STATUS, powerStatusCommand);
 
+  // base_util.registerCanlink(CANLINK_CMD_MOTOR_STATUS, motorStatusCommand);
+
   // rosserial
 	nh.initNode();
-  nh.advertise(chatter);
   nh.advertise(target_pub);
   nh.advertise(joy_propo_pub);
-  nh.advertise(odom_2d_pub);
+  nh.advertise(pose_2d_stamped_pub);
+  nh.advertise(twist_2d_stamped_pub);
   nh.advertise(board_info_pub);
   nh.advertise(heart_beat_pub);
   nh.advertise(power_status_pub);
+  // nh.advertise(motor_status_pub);
+  // nh.advertise(motor_target_pub);
+  // nh.advertise(motor_output_pub);
+
   nh.subscribe(set_led_sub);
   nh.subscribe(cmd_vel_sub);
 
@@ -228,8 +272,6 @@ int main()
     if(flag_2hz->check()){
       // printf("2hz\n");
       base_util.toggleLed(1);
-      str_msg.data = "hello rosserial";
-      chatter.publish( &str_msg );
 
       canlink_util::HeartBeat heart_beat;
       heart_beat.mode = canlink_util::HeartBeat::MODE_ACTIVE;

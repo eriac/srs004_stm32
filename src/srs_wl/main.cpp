@@ -2,45 +2,49 @@
 #include <vector>
 #include <mbed.h>
 // #include "ADXL345_I2C.h"
+
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #include "MPU6050.h"
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
+
 #include "base_util.h"
 #include "canlink_util.h"
 #include "pwm_motor.h"
 
 BaseUtil base_util;
 
-MPU6050 imu(PC_9, PA_8);
+// MPU6050 imu(PC_9, PA_8);
 PwmMotor mot0(PA_6, PA_7, PA_0, PA_1);
 PwmMotor mot1(PB_0, PB_1, PC_4, PC_5);
 PwmMotor mot2(PB_8, PB_9, PD_2, PB_3);
 
-std::string imuCommand(std::vector<std::string> command)
-{
-  std::string result;
-  if (command[1] == "acc")
-  {
-    int acc[3];
-    Timer imu_timer;
-    imu_timer.start();
-    imu.readAccelData(acc);
-    imu_timer.stop();
-    uint64_t time = imu_timer.read_us();
-    float res =imu.getAres();
-    result = "acc: " + std::to_string(res * acc[0]) + ", " + std::to_string(res * acc[1]) + ", " + std::to_string(res * acc[2]) + ", " + std::to_string(time);
-  }
-  else if (command[1] == "gyro")
-  {
-    int acc[3];
-    Timer imu_timer;
-    imu_timer.start();
-    imu.readGyroData(acc);
-    imu_timer.stop();
-    uint64_t time = imu_timer.read_us();
-    float res =imu.getGres();
-    result = "acc: " + std::to_string(res * acc[0]) + ", " + std::to_string(res * acc[1]) + ", " + std::to_string(res * acc[2]) + ", " + std::to_string(time);
-  }
-  return result;
-}
+// std::string imuCommand(std::vector<std::string> command)
+// {
+//   std::string result;
+//   if (command[1] == "acc")
+//   {
+//     int acc[3];
+//     Timer imu_timer;
+//     imu_timer.start();
+//     imu.readAccelData(acc);
+//     imu_timer.stop();
+//     uint64_t time = imu_timer.read_us();
+//     float res =imu.getAres();
+//     result = "acc: " + std::to_string(res * acc[0]) + ", " + std::to_string(res * acc[1]) + ", " + std::to_string(res * acc[2]) + ", " + std::to_string(time);
+//   }
+//   else if (command[1] == "gyro")
+//   {
+//     int acc[3];
+//     Timer imu_timer;
+//     imu_timer.start();
+//     imu.readGyroData(acc);
+//     imu_timer.stop();
+//     uint64_t time = imu_timer.read_us();
+//     float res =imu.getGres();
+//     result = "acc: " + std::to_string(res * acc[0]) + ", " + std::to_string(res * acc[1]) + ", " + std::to_string(res * acc[2]) + ", " + std::to_string(time);
+//   }
+//   return result;
+// }
 
 std::string monitorCanCallback(std::vector<std::string> command)
 {
@@ -151,6 +155,7 @@ void propoStatusCallback(CanlinkMsg canlink_msg){
 
 int main()
 {
+  printf("main\n");
   base_util.registerParam("GAIN_F", 0.00015f);
   base_util.registerParam("GAIN_P", 0.0002f);
   base_util.registerParam("GAIN_I", 0.0010f);
@@ -159,7 +164,7 @@ int main()
   base_util.setCanlinkID(CANLINK_NODE_WL); // 3
   base_util.registerMonitor("can", monitorCanCallback);
   base_util.registerMonitor("mot", motorCallback);
-  base_util.registerMonitor("imu", callback(imuCommand));
+  // base_util.registerMonitor("imu", callback(imuCommand));
 
   base_util.registerCanlink(CANLINK_CMD_MOVE_TARGET, moveTargetCallback);
   base_util.registerCanlink(CANLINK_CMD_PROPO_STATUS, propoStatusCallback);
@@ -172,9 +177,13 @@ int main()
   float th = 0.0f;
   thread_sleep_for(100);
 
+  int counter_50hz = 0;
+
   while (1)
   {
     if(flag_2hz->check()){
+      // printf("2hz\n");
+
       base_util.sendCanlink(2, 10, std::vector<unsigned char>{10, 20, 30, 40});
       base_util.toggleLed(1);
 
@@ -234,13 +243,48 @@ int main()
       local_velocity.x = local_dx * 50.0;
       local_velocity.y = local_dy * 50.0;
       local_velocity.theta = dt_r * 50.0;
-      base_util.sendCanlink(CANLINK_NODE_SH, local_velocity.getID(), local_velocity.getData());
 
       canlink_util::LocalPosition local_position;
       local_position.x = x;
       local_position.y = y;
       local_position.theta = th;
-      base_util.sendCanlink(CANLINK_NODE_SH, local_position.getID(), local_position.getData());
+
+      canlink_util::MotorStatus status;
+      status.mot0 = diff0 * 50.0;
+      status.mot1 = diff1 * 50.0;
+      status.mot2 = diff2 * 50.0;
+      status.mot3 = 0;
+
+      canlink_util::MotorTarget target;
+      target.mot0 = mot0.getControlStatus().target_speed;
+      target.mot1 = mot1.getControlStatus().target_speed;
+      target.mot2 = mot2.getControlStatus().target_speed;
+      target.mot3 = 0;
+
+      canlink_util::MotorOutput output;
+      output.mot0 = mot0.getControlStatus().output;
+      output.mot1 = mot1.getControlStatus().output;
+      output.mot2 = mot2.getControlStatus().output;
+      output.mot3 = 0;
+
+      switch (counter_50hz % 8)
+      {
+      case 0:
+      case 2:
+      case 4:
+      case 6:
+        base_util.sendCanlink(CANLINK_NODE_SH, local_velocity.getID(), local_velocity.getData());
+        base_util.sendCanlink(CANLINK_NODE_SH, local_position.getID(), local_position.getData());
+        break;
+      case 1:
+        base_util.sendCanlink(CANLINK_NODE_SH, status.getID(), status.getData());
+        base_util.sendCanlink(CANLINK_NODE_SH, target.getID(), target.getData());
+        break;
+      case 5:
+        base_util.sendCanlink(CANLINK_NODE_SH, output.getID(), output.getData());
+        break;
+      }
+      counter_50hz++;
     }
     base_util.process();
     thread_sleep_for(1);

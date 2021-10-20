@@ -65,6 +65,10 @@ public:
     return counter_;
   }
 
+  ControlStatus getControlStatus(void){
+    return result_;
+  }
+
   int control(float dt){
     float output = 0.0;
     if(mode_ == Mode::SPEED){
@@ -72,7 +76,7 @@ public:
       result_.iterm = result_.iterm + diff * dt;
       float output_raw = param_.f * target_speed_ - param_.p * diff - param_.i * result_.iterm;
       output = std::min(std::max(output_raw, -1.0f), 1.0f);
-  }
+    }
     else if(mode_ == Mode::PWM){
       output = std::min(std::max(target_pwm_, -1.0f), 1.0f);
     }

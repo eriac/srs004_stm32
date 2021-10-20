@@ -1,5 +1,5 @@
-#ifndef _ROS_s4_msgs_twist2DStamped_h
-#define _ROS_s4_msgs_twist2DStamped_h
+#ifndef _ROS_s4_msgs_Twist2DStamped_h
+#define _ROS_s4_msgs_Twist2DStamped_h
 
 #include <stdint.h>
 #include <string.h>
@@ -11,7 +11,7 @@
 namespace s4_msgs
 {
 
-  class twist2DStamped : public ros::Msg
+  class Twist2DStamped : public ros::Msg
   {
     public:
       typedef std_msgs::Header _header_type;
@@ -19,7 +19,7 @@ namespace s4_msgs
       typedef s4_msgs::Twist2D _twist_type;
       _twist_type twist;
 
-    twist2DStamped():
+    Twist2DStamped():
       header(),
       twist()
     {
@@ -41,7 +41,7 @@ namespace s4_msgs
      return offset;
     }
 
-    const char * getType(){ return "s4_msgs/twist2DStamped"; };
+    const char * getType(){ return "s4_msgs/Twist2DStamped"; };
     const char * getMD5(){ return "745d448630ae50a94bdd805e8227691a"; };
 
   };

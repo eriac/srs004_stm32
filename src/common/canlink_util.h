@@ -149,6 +149,15 @@ struct Serializer : public CanlinkMsg
     }
 };
 
+// Msg Base
+struct MsgBase {
+    virtual unsigned int getID(void) = 0;
+    virtual unsigned char getExtra(void) const = 0;
+    virtual std::vector<unsigned char> getData(void) = 0;
+    virtual bool decode(const std::vector<unsigned char> data, const unsigned char extra) = 0;
+    virtual std::string getStr(void) = 0;
+};
+
 /* NODE ZONE
  * 1: receiver(SH)
  * 2: power controller (PW)
@@ -666,6 +675,200 @@ struct LocalVelocity {
         std::string output = "LocalVelocity: ";
         char str[32];
         snprintf(str, 32, "%+5.2f %+5.2f %+5.2f", x, y, theta);
+        output += std::string(str);
+        return output;
+    }
+};
+
+// #25 MotorStatus
+#define CANLINK_CMD_MOTOR_STATUS 25
+struct MotorStatus {
+    int mot0;
+    int mot1;
+    int mot2;
+    int mot3;
+
+    union u_i_16{
+        int16_t signed_value;
+        uint16_t unsigned_value;
+    };
+
+    unsigned int getID(void)
+    {
+        return CANLINK_CMD_MOTOR_STATUS;
+    }
+    unsigned char getExtra(void) const
+    {
+        return 0;
+    }
+    std::vector<unsigned char> getData(void)
+    {
+        std::vector<unsigned char> output;
+        u_i_16 c0_temp, c1_temp, c2_temp, c3_temp;
+        c0_temp.signed_value = mot0;
+        c1_temp.signed_value = mot1;
+        c2_temp.signed_value = mot2;
+        c3_temp.signed_value = mot3;
+        output.push_back((c0_temp.unsigned_value>>0) & 0xff);
+        output.push_back((c0_temp.unsigned_value>>8) & 0xff);
+        output.push_back((c1_temp.unsigned_value>>0) & 0xff);
+        output.push_back((c1_temp.unsigned_value>>8) & 0xff);
+        output.push_back((c2_temp.unsigned_value>>0) & 0xff);
+        output.push_back((c2_temp.unsigned_value>>8) & 0xff);
+        output.push_back((c3_temp.unsigned_value>>0) & 0xff);
+        output.push_back((c3_temp.unsigned_value>>8) & 0xff);
+        return output;
+    }
+    bool decode(const std::vector<unsigned char> data, const unsigned char extra)
+    {
+        if (data.size() != 8) {
+            return false;
+        }
+        u_i_16 c0_temp, c1_temp, c2_temp, c3_temp;
+        c0_temp.unsigned_value = ((data[1]<<8)&0xff00) | (data[0]&0xff);
+        c1_temp.unsigned_value = ((data[3]<<8)&0xff00) | (data[2]&0xff);
+        c2_temp.unsigned_value = ((data[5]<<8)&0xff00) | (data[4]&0xff);
+        c3_temp.unsigned_value = ((data[7]<<8)&0xff00) | (data[6]&0xff);
+        mot0 = c0_temp.signed_value;
+        mot1 = c1_temp.signed_value;
+        mot2 = c2_temp.signed_value;
+        mot3 = c3_temp.signed_value;
+        return true;
+    }
+    std::string getStr(void){
+        std::string output = "MotorStatus: ";
+        char str[32];
+        snprintf(str, 32, "%d %d %d %d", mot0, mot1, mot2, mot3);
+        output += std::string(str);
+        return output;
+    }
+};
+
+// #26 MotorTarget
+#define CANLINK_CMD_MOTOR_TARGET 26
+struct MotorTarget {
+    int mot0;
+    int mot1;
+    int mot2;
+    int mot3;
+
+    union u_i_16{
+        int16_t signed_value;
+        uint16_t unsigned_value;
+    };
+
+    unsigned int getID(void)
+    {
+        return CANLINK_CMD_MOTOR_TARGET;
+    }
+    unsigned char getExtra(void) const
+    {
+        return 0;
+    }
+    std::vector<unsigned char> getData(void)
+    {
+        std::vector<unsigned char> output;
+        u_i_16 c0_temp, c1_temp, c2_temp, c3_temp;
+        c0_temp.signed_value = mot0;
+        c1_temp.signed_value = mot1;
+        c2_temp.signed_value = mot2;
+        c3_temp.signed_value = mot3;
+        output.push_back((c0_temp.unsigned_value>>0) & 0xff);
+        output.push_back((c0_temp.unsigned_value>>8) & 0xff);
+        output.push_back((c1_temp.unsigned_value>>0) & 0xff);
+        output.push_back((c1_temp.unsigned_value>>8) & 0xff);
+        output.push_back((c2_temp.unsigned_value>>0) & 0xff);
+        output.push_back((c2_temp.unsigned_value>>8) & 0xff);
+        output.push_back((c3_temp.unsigned_value>>0) & 0xff);
+        output.push_back((c3_temp.unsigned_value>>8) & 0xff);
+        return output;
+    }
+    bool decode(const std::vector<unsigned char> data, const unsigned char extra)
+    {
+        if (data.size() != 8) {
+            return false;
+        }
+        u_i_16 c0_temp, c1_temp, c2_temp, c3_temp;
+        c0_temp.unsigned_value = ((data[1]<<8)&0xff00) | (data[0]&0xff);
+        c1_temp.unsigned_value = ((data[3]<<8)&0xff00) | (data[2]&0xff);
+        c2_temp.unsigned_value = ((data[5]<<8)&0xff00) | (data[4]&0xff);
+        c3_temp.unsigned_value = ((data[7]<<8)&0xff00) | (data[6]&0xff);
+        mot0 = c0_temp.signed_value;
+        mot1 = c1_temp.signed_value;
+        mot2 = c2_temp.signed_value;
+        mot3 = c3_temp.signed_value;
+        return true;
+    }
+    std::string getStr(void){
+        std::string output = "MotorTarget: ";
+        char str[32];
+        snprintf(str, 32, "%d %d %d %d", mot0, mot1, mot2, mot3);
+        output += std::string(str);
+        return output;
+    }
+};
+
+// #27 MotorTarget
+#define CANLINK_CMD_MOTOR_OUTPUT 27
+struct MotorOutput {
+    float mot0;
+    float mot1;
+    float mot2;
+    float mot3;
+
+    union u_i_16{
+        int16_t signed_value;
+        uint16_t unsigned_value;
+    };
+
+    const int scale = 1024;
+
+    unsigned int getID(void)
+    {
+        return CANLINK_CMD_MOTOR_OUTPUT;
+    }
+    unsigned char getExtra(void) const
+    {
+        return 0;
+    }
+    std::vector<unsigned char> getData(void)
+    {
+        std::vector<unsigned char> output;
+        u_i_16 c0_temp, c1_temp, c2_temp, c3_temp;
+        c0_temp.signed_value = mot0 * scale;
+        c1_temp.signed_value = mot1 * scale;
+        c2_temp.signed_value = mot2 * scale;
+        c3_temp.signed_value = mot3 * scale;
+        output.push_back((c0_temp.unsigned_value>>0) & 0xff);
+        output.push_back((c0_temp.unsigned_value>>8) & 0xff);
+        output.push_back((c1_temp.unsigned_value>>0) & 0xff);
+        output.push_back((c1_temp.unsigned_value>>8) & 0xff);
+        output.push_back((c2_temp.unsigned_value>>0) & 0xff);
+        output.push_back((c2_temp.unsigned_value>>8) & 0xff);
+        output.push_back((c3_temp.unsigned_value>>0) & 0xff);
+        output.push_back((c3_temp.unsigned_value>>8) & 0xff);
+        return output;
+    }
+    bool decode(const std::vector<unsigned char> data, const unsigned char extra)
+    {
+        if (data.size() != 8) {
+            return false;
+        }
+        u_i_16 c0_temp, c1_temp, c2_temp, c3_temp;
+        c0_temp.unsigned_value = ((data[1]<<8)&0xff00) | (data[0]&0xff);
+        c1_temp.unsigned_value = ((data[3]<<8)&0xff00) | (data[2]&0xff);
+        c2_temp.unsigned_value = ((data[5]<<8)&0xff00) | (data[4]&0xff);
+        c3_temp.unsigned_value = ((data[7]<<8)&0xff00) | (data[6]&0xff);
+        mot0 = (float)c0_temp.signed_value / scale;
+        mot1 = (float)c1_temp.signed_value / scale;
+        mot2 = (float)c2_temp.signed_value / scale;
+        mot3 = (float)c3_temp.signed_value / scale;
+        return true;
+    }
+    std::string getStr(void){
+        std::string output = "MotorOutput: ";
+        char str[32];
+        snprintf(str, 32, "%+5.2f %+5.2f %+5.2f %+5.2f", mot0, mot1, mot2, mot3);
         output += std::string(str);
         return output;
     }

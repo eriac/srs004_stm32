@@ -1,7 +1,8 @@
 /BUILD/
 /mbed-os/
 /ros_lib_kinetic/
+/ros_lib_melodic/
 /ADXL345_I2C/
 /Adafruit_GFX/
 /MPU6050/
-
+/LSM303DLHC/
